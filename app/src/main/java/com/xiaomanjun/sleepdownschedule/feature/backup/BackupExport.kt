@@ -24,18 +24,24 @@ data class BackupRoomSnapshot(
     val widgetAppearances: List<WidgetAppearanceEntity> = emptyList()
 )
 
-/** Reads every Room table in one transaction; active-only repository snapshots are not enough. */
+/** Reads all current profiles and their owned rows atomically, plus the independent global library. */
 class BackupRoomSnapshotReader(private val database: AppDatabase) {
     suspend fun read(): BackupRoomSnapshot = database.withTransaction {
+        val profiles = database.scheduleProfileDao().getProfiles()
+        val scheduleIds = profiles.mapTo(HashSet()) { it.id }
+        // Earlier callbacks/deletions could leave rows after their profile disappeared. Export
+        // the current timetable list (including inactive profiles), without modifying those rows
+        // or resurrecting deleted timetables. The codec still validates every exported relation.
         BackupRoomSnapshot(
-            schedules = database.scheduleProfileDao().getProfiles(),
-            configs = database.configDao().getAllConfigs(),
-            periods = database.configDao().getAllPeriods(),
-            courses = database.courseDao().getAllCourses(),
+            schedules = profiles,
+            configs = database.configDao().getAllConfigs().filter { it.id in scheduleIds },
+            periods = database.configDao().getAllPeriods().filter { it.scheduleId in scheduleIds },
+            courses = database.courseDao().getAllCourses().filter { it.scheduleId in scheduleIds },
+            // scheduleId is legacy provenance for shared schemes, not current ownership.
             periodSchemes = database.periodSchemeDao().getAllSchemes(),
             periodSchemeTimes = database.periodSchemeDao().getAllTimes(),
-            agentDailySessions = database.agentDao().getAllDailySessions(),
-            agentMessages = database.agentDao().getAllMessages(),
+            agentDailySessions = database.agentDao().getAllDailySessions().filter { it.scheduleId in scheduleIds },
+            agentMessages = database.agentDao().getAllMessages().filter { it.scheduleId in scheduleIds },
             widgetAppearances = database.widgetAppearanceDao().getAll()
         )
     }
@@ -126,10 +132,9 @@ object BackupExportMapper {
         val configs = snapshot.configs.associateBy { it.id }
         require(configs.size == snapshot.configs.size) { "schedule config 存在重复 Room ID" }
         val scheduleRoomIds = scheduleIds.keys
-        // Old global-settings saves could persist a fallback/stale ID without a profile.
-        // Such a config is not a timetable. Keep it available for legacy scheme provenance,
-        // but only export configs owned by the profiles below; do not mutate the source DB.
-        // Orphan course/period/history data must still fail rather than silently lose user data.
+        require(snapshot.configs.all { it.id in scheduleRoomIds }) {
+            "schedule config 引用了不存在的 schedule profile"
+        }
         require(snapshot.periods.all { it.scheduleId in scheduleRoomIds }) {
             "period 引用了不存在的 schedule profile"
         }
@@ -162,9 +167,7 @@ object BackupExportMapper {
             scheme.id to BackupStableId.new(BackupStableId.SCHEME_PREFIX)
         }
         require(schemeIds.size == snapshot.periodSchemes.size) { "period scheme 存在重复 Room ID" }
-        require(snapshot.configs.filter { it.id in scheduleRoomIds }.all {
-            it.activePeriodSchemeId == null || it.activePeriodSchemeId in schemeRoomIds
-        }) {
+        require(snapshot.configs.all { it.activePeriodSchemeId == null || it.activePeriodSchemeId in schemeRoomIds }) {
             "课表引用了不存在的共享作息"
         }
         val sharedSchemes = snapshot.periodSchemes.map { scheme ->

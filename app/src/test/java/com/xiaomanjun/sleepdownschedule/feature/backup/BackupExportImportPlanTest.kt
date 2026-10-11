@@ -14,42 +14,16 @@ import org.junit.Test
 
 class BackupExportImportPlanTest {
     @Test
-    fun leftoverConfigDoesNotBlockExistingTimetableOrResurrectADeletedOne() {
-        val live = defaultConfig(7).copy(totalWeeks = 18, currentWeek = 3)
-        // Old startup/global-setting callbacks could leave ID 1 behind after a restore.
-        val leftover = defaultConfig(1).copy(activePeriodSchemeId = 999, wallpaperUri = "content://missing/wallpaper")
+    fun mapperRejectsInconsistentSnapshotsInsteadOfWeakeningFormatValidation() {
         val snapshot = BackupRoomSnapshot(
             schedules = listOf(ScheduleProfileEntity(7, "有效课表", true)),
-            configs = listOf(leftover, live),
-            periods = listOf(PeriodEntity(1, "08:00", "08:45", 7)),
-            courses = listOf(CourseEntity(id = 1, name = "有效课程", teacher = "", location = "",
-                weekday = 1, periods = listOf(1), weeks = listOf(1, 2), weekParity = WeekParity.ALL,
-                note = "", scheduleId = 7))
-        )
-        val archive = BackupExportMapper.toArchive(metadata(), snapshot,
-            BackupPreferences(preferencesVersion = BackupFormatV1.PREFERENCES_VERSION))
-        val decoded = BackupCodec.decode(BackupCodec.encode(archive))
-
-        assertEquals(1, decoded.data.schedules.size)
-        val schedule = decoded.data.schedules.single()
-        assertEquals("有效课表", schedule.name)
-        assertEquals(18, schedule.config.totalWeeks)
-        assertEquals(3, schedule.config.currentWeek)
-        assertEquals("有效课程", schedule.courses.single().name)
-        assertTrue(decoded.assets.isEmpty())
-        assertEquals(listOf(leftover, live), snapshot.configs)
-    }
-
-    @Test
-    fun missingCourseOrPeriodOwnerStillFailsInsteadOfDroppingData() {
-        val snapshot = BackupRoomSnapshot(
-            schedules = listOf(ScheduleProfileEntity(7, "有效课表", true)),
-            configs = listOf(defaultConfig(7), defaultConfig(1))
+            configs = listOf(defaultConfig(7))
         )
         val course = CourseEntity(id = 1, name = "不能丢弃的课程", teacher = "", location = "",
             weekday = 1, periods = listOf(1), weeks = listOf(1), weekParity = WeekParity.ALL,
             note = "", scheduleId = 1)
-        for (invalid in listOf(snapshot.copy(courses = listOf(course)),
+        for (invalid in listOf(snapshot.copy(configs = listOf(defaultConfig(1))),
+            snapshot.copy(courses = listOf(course)),
             snapshot.copy(periods = listOf(PeriodEntity(1, "08:00", "08:45", 1))))) {
             try {
                 BackupExportMapper.toArchive(metadata(), invalid,

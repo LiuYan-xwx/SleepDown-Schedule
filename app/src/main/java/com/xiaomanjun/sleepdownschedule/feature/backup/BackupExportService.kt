@@ -40,8 +40,7 @@ class BackupExportService(
 
     private fun buildAssetInputs(snapshot: BackupRoomSnapshot): List<BackupExportAssetInput> {
         val inputs = mutableListOf<BackupExportAssetInput>()
-        val scheduleIds = snapshot.schedules.mapTo(HashSet()) { it.id }
-        snapshot.configs.filter { it.id in scheduleIds }.forEach { config ->
+        snapshot.configs.forEach { config ->
             val uri = config.wallpaperUri?.takeIf(String::isNotBlank) ?: return@forEach
             inputs += sourceReader.readUri(
                 sourceKey = "schedule-wallpaper:${config.id}:$uri",
