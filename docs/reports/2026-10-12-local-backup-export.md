@@ -26,3 +26,11 @@ Android 的 `ACTION_CREATE_DOCUMENT` 为新建文件授予读写访问，并不�
 - 真实手机完整导出仍需使用修复包复测，不能把上述模拟测试当作该设备已恢复正常的证据。
 
 本修复单独保留在 `codex/backup-export-empty-20261012`，基于 `main` 的 `9662d103`，不包含学校适配。临时安装候选需要额外保留已安装版本中的 ChatGPT 修复，避免覆盖安装时倒退其他功能。
+
+## 临时安装与待确认项
+
+- 集成测试分支：`codex/backup-chatgpt-test-20261012`，以 ChatGPT 修复 `e8a350e7` 为基础加入备份提交。没有学校适配或私有后端。
+- `assembleGithubRelease` 通过，包含 R8、资源压缩与 lintVital。APK 包名 `com.xiaomanjun.sleepdownschedule`，版本 `1.2.7_beta5` / `34`，签名与之前安装包一致。
+- APK SHA-256：`cbe86430c61162aeb35e0bfb5ae8df8cf37e94d4b8ab93c230b9e849a48e5678`。
+- 已通过 5038 通道在 PLJ110 上 `install -r` 成功，未清除数据，也未自动启动。
+- 用户复测反馈“保存失败，显示具体错误”。备份专用日志仍为空，当前尚未取得该错误的完整文字；不能宣告真实导出问题已经解决，需继续依据报错定位。只确认新增校验及其回归测试通过。
