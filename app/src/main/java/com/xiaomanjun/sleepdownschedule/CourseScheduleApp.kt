@@ -64,6 +64,7 @@ class CourseScheduleApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AppMaterialPreferences.load(this)
+        com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager.initialize(this)
         AppIconManager.onIconChanged = { TodayCoursesWidgetProvider.refreshAll(this) }
         AppIconManager.applyStoredMode(this)
         AutoRefreshScheduleWorker.ensureSchedule(this, AutoRefreshScheduleStore.load(this))

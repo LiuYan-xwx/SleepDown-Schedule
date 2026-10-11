@@ -35,11 +35,16 @@ internal class AiStreamResponseBudget {
     }
 }
 
-internal fun HttpURLConnection.setAiAuthHeader(apiKey: String, authType: AiAuthType) {
+internal fun HttpURLConnection.setAiAuthHeader(apiKey: String, authType: AiAuthType, model: String? = null) {
     when (authType) {
         AiAuthType.ApiKeyBearer,
         AiAuthType.OpenAIProjectKey -> setRequestProperty("Authorization", "Bearer $apiKey")
         AiAuthType.CustomHeader -> setRequestProperty("api-key", apiKey)
+        AiAuthType.ChatGptOAuth -> {
+            requireChatGptInferenceEndpoint(url.toString())
+            val selectedModel = requireNotNull(model) { "ChatGPT 请求缺少已授权模型" }
+            setRequestProperty("Authorization", "Bearer ${com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager.requireAccessToken(selectedModel)}")
+        }
     }
 }
 
@@ -55,17 +60,27 @@ internal fun openAiPostConnection(
     accept: String? = "application/json",
     method: String = "POST",
     connectTimeoutMs: Int = AiDefaultConnectTimeoutMs,
-    readTimeoutMs: Int = AiDefaultReadTimeoutMs
-): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
+    readTimeoutMs: Int = AiDefaultReadTimeoutMs,
+    model: String? = null
+): HttpURLConnection {
+    val generation = ChatGptInferenceSessions.currentGeneration()
+    return (URL(url).openConnection() as HttpURLConnection).apply {
     requestMethod = method
     connectTimeout = connectTimeoutMs
     // Streaming providers may legitimately pause while reasoning. This is an inactivity timeout,
     // not a total request deadline; keep it long enough for those pauses.
     readTimeout = readTimeoutMs
     doOutput = true
-    setAiAuthHeader(apiKey, authType)
+    if (authType == AiAuthType.ChatGptOAuth) {
+        requireChatGptInferenceEndpoint(url.toString())
+        // Never redirect an OAuth bearer credential to another endpoint or origin.
+        instanceFollowRedirects = false
+    }
+    setAiAuthHeader(apiKey, authType, model)
     setRequestProperty("Content-Type", contentType)
     accept?.let { setRequestProperty("Accept", it) }
+    if (authType == AiAuthType.ChatGptOAuth) ChatGptInferenceSessions.register(this, generation)
+    }
 }
 
 /** Reads a non-streaming body, converting any non-2xx status into a provider-facing error. */
@@ -206,7 +221,8 @@ internal fun formatAiNetworkError(url: String, throwable: Throwable): String {
     return "$hint 原始错误：$message"
 }
 
-internal fun formatAiRequestError(status: Int, text: String, providerId: String? = null): String {
+internal fun formatAiRequestError(status: Int, text: String, providerId: String? = null, requestId: String? = null): String {
+    if (providerId == AiProviderPresets.chatGpt.id) return chatGptInferenceError(status, text, requestId)
     // Managed credentials still call the provider directly. An HTTP failure cannot tell us
     // that SleepDown's daily allowance is exhausted, nor when the provider will recover.
     // Preserve the status and response for diagnosis just as with a user's own credentials.

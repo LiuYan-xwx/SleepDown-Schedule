@@ -58,7 +58,7 @@ class AiScheduleImportService(
     ): Result<AiScheduleImportResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+                require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
                 require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
                 require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
                 require(file.bytes.size <= MaxAiImportFileBytes) { "文件不能超过 20MB" }
@@ -114,7 +114,7 @@ class AiScheduleImportService(
     ): Result<AiScheduleImportResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+                require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
                 require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
                 require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
                 val cleaned = text.trim().take(60_000)
@@ -169,7 +169,7 @@ class AiScheduleImportService(
     ): Result<AiScheduleImportResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+                require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
                 require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
                 require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
                 val cleaned = text.trim().take(60_000)
@@ -220,7 +220,7 @@ class AiScheduleImportService(
         onReasoningUpdate: (String) -> Unit = {}
     ): Result<AiScheduleImportResult> = withContext(Dispatchers.IO) {
         runCatching {
-            require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+            require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
             require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
             require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
             val config = settings.toProviderConfig().normalizedForRequest()
@@ -252,7 +252,7 @@ class AiScheduleImportService(
         onCheckpoint: (ImportDraft, String) -> Unit = { _, _ -> }
     ): Result<AiScheduleImportResult> = withContext(Dispatchers.IO) {
         runCatching {
-            require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+            require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
             require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
             require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
             interaction?.onHttpPhase = onHttpPhase
@@ -294,7 +294,7 @@ private fun currentAiProcessImportance(context: Context): Int? = runCatching {
 suspend fun testAiProviderConnection(settings: AiImportSettings): Result<String> {
     return withContext(Dispatchers.IO) {
         runCatching {
-            require(settings.apiKey.isNotBlank()) { "请先配置 AI API Key" }
+            require(settings.hasCredentialConfiguration()) { "请先配置 AI API Key" }
             require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
             require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
             val config = settings.toProviderConfig().normalizedForRequest()
@@ -380,7 +380,7 @@ suspend fun diagnoseAiProviderNetwork(settings: AiImportSettings): Result<String
                 result.appendLine("HTTPS：失败，${it.message.orEmpty()}")
             }
 
-            if (settings.apiKey.isBlank()) {
+            if (!settings.hasCredentialConfiguration()) {
                 result.appendLine("请求测试：跳过，未配置 API Key")
             } else {
                 testAiProviderConnection(settings)

@@ -276,6 +276,19 @@ internal class OpenAiResponsesAgentRunner(
                 settings.profile.authType, settings.profile.id,
                 AiImportNetworkContext("AGENT", interaction = interaction, onReasoningUpdate = onReasoning, onPhase = interaction.onHttpPhase))
         }
+        if (settings.profile.id == AiProviderPresets.chatGpt.id) {
+            val connection = open(settings, body)
+            return try {
+                checkChatGptResponse(connection)
+                val accumulator = ResponsesSseAccumulator(requireCompleted = true)
+                connection.forEachSseDataLine(onPayload = accumulator::consume)
+                ChatGptInferenceSessions.checkActive(connection)
+                accumulator.toResponseJson()
+            } finally {
+                ChatGptInferenceSessions.release(connection)
+                connection.disconnect()
+            }
+        }
         val connection = open(settings, body)
         val code = connection.responseCode
         val source = if (code in 200..299) connection.inputStream else connection.errorStream
@@ -304,6 +317,8 @@ internal class OpenAiResponsesAgentRunner(
         phase(AiImportHttpPhase.BODY_WRITE_END)
         val code = connection.responseCode
         phase(AiImportHttpPhase.HEADERS_RECEIVED)
+        val chatGpt = settings.profile.id == AiProviderPresets.chatGpt.id
+        if (chatGpt) checkChatGptResponse(connection)
         if (code !in 200..299) {
             val error = connection.errorStream?.bufferedReader()?.use { it.readAiBoundedText() }.orEmpty()
             throw AiServiceResponseException(formatAiRequestError(code, error, settings.profile.id), error, httpStatus = code)
@@ -324,7 +339,7 @@ internal class OpenAiResponsesAgentRunner(
         }
 
         val result = AgentResponsesTextAccumulator()
-        val importStream = interaction?.let { ResponsesSseAccumulator() }
+        val importStream = if (interaction != null || chatGpt) ResponsesSseAccumulator(requireCompleted = chatGpt) else null
         var firstEvent = true
         connection.forEachSseDataLine(checkActive = { interaction?.checkActive() }) { data ->
             if (firstEvent) {
@@ -339,6 +354,8 @@ internal class OpenAiResponsesAgentRunner(
             if (!usage.isEmpty) onUsage(usage)
             result.consume(event).takeIf(String::isNotEmpty)?.let(onDelta)
         }
+        if (chatGpt) ChatGptInferenceSessions.checkActive(connection)
+        importStream?.toResponseJson()
         val answer = result.finish()
         return finishAiImportStream(answer, publishFinal = {
             interaction?.publishStream(importStream?.reasoning?.isNotEmpty() == true, answer, force = true)
@@ -347,11 +364,30 @@ internal class OpenAiResponsesAgentRunner(
             interaction?.checkActive()
             throw error
         } finally {
+            ChatGptInferenceSessions.release(connection)
             connection.disconnect()
         }
     }
 
     private fun open(settings: AiImportSettings, body: JsonObject): HttpURLConnection {
+        if (settings.profile.id == AiProviderPresets.chatGpt.id) {
+            val connection = openAiPostConnection(
+                url = "https://api.openai.com/v1/responses",
+                apiKey = "",
+                authType = AiAuthType.ChatGptOAuth,
+                accept = "text/event-stream",
+                model = settings.profile.defaultModel
+            )
+            return try {
+                interaction?.attach(connection)
+                connection.outputStream.use { it.write(chatGptResponsesBody(body).toString().toByteArray(Charsets.UTF_8)) }
+                connection
+            } catch (error: Throwable) {
+                ChatGptInferenceSessions.release(connection)
+                connection.disconnect()
+                throw error
+            }
+        }
         val path = settings.profile.responsesPath.trim('/')
         val base = if (path.isEmpty()) {
             // 未显式配置路径：直接使用下发的完整地址，不再 normalize 剥掉 /responses 等后缀
@@ -375,6 +411,17 @@ internal class OpenAiResponsesAgentRunner(
                 interaction?.checkActive()
                 throw error
             }
+        }
+    }
+
+    private fun checkChatGptResponse(connection: HttpURLConnection) {
+        val status = connection.responseCode
+        if (status !in 200..299) {
+            val body = connection.errorStream?.bufferedReader()?.use { it.readAiBoundedText().take(16_384) }.orEmpty()
+            error(chatGptInferenceError(status, body, connection.getHeaderField("x-request-id")))
+        }
+        check(connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
+            "ChatGPT 未返回要求的事件流，请重试。"
         }
     }
 }
