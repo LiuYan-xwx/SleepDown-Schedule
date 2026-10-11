@@ -11,6 +11,8 @@ import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.core.identity.AppIdentity
 
 import android.net.Uri
+import android.provider.DocumentsContract
+import android.text.format.Formatter
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,7 +50,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.ZoneId
@@ -80,7 +87,8 @@ fun BackupRestoreSettingsScreen(
     val app = remember(context) { context.applicationContext as CourseScheduleApp }
     val scope = rememberCoroutineScope()
     val topPadding = detailContentTopPadding()
-    val defaultFileName = remember { defaultBackupFileName() }
+    val documentExport = remember(app) { BackupDocumentExport(File(app.cacheDir, "backup_exports")) }
+    var preparedBackupName by rememberSaveable { mutableStateOf<String?>(null) }
     var busyLabel by remember { mutableStateOf<String?>(null) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var statusIsError by remember { mutableStateOf(false) }
@@ -88,7 +96,8 @@ fun BackupRestoreSettingsScreen(
     fun showFailure(title: String, guidance: String, error: Throwable) {
         Log.e("SleepDownBackup", title, error)
         statusIsError = true
-        statusMessage = "$title。$guidance"
+        val detail = error.message?.take(240)?.takeIf { it.isNotBlank() }
+        statusMessage = "$title${detail?.let { "：$it" }.orEmpty()}。$guidance"
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -96,26 +105,47 @@ fun BackupRestoreSettingsScreen(
         // when the suggested display name ends in `.sleepdown`.
         contract = ActivityResultContracts.CreateDocument(BackupDocumentMimeType)
     ) { destination ->
-        if (destination == null) return@rememberLauncherForActivityResult
+        val prepared = preparedBackupName
+        preparedBackupName = null
         scope.launch {
-            busyLabel = "正在整理课表、设置和图片…"
+            if (destination == null) {
+                prepared?.let { withContext(Dispatchers.IO) { documentExport.discard(it) } }
+                busyLabel = null
+                return@launch
+            }
+            busyLabel = "正在保存并校验备份…"
             statusMessage = null
             statusIsError = false
-            runCatching {
-                val archive = BackupExportService(app, app.database).export()
-                val output = context.contentResolver.openOutputStream(destination, "wt")
-                    ?: error("系统未能打开备份保存位置")
-                output.use { BackupCodec.write(it, archive) }
-            }.onSuccess {
-                statusMessage = "备份已保存。应用里的课表和设置没有变化。"
-            }.onFailure { error ->
+            var saved = false
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    checkNotNull(prepared) { "待保存的备份已失效，请重新点击保存" }
+                    Log.i("SleepDownBackup", "Local export saving; provider=${destination.authority}")
+                    documentExport.save(
+                        prepared,
+                        openDestination = { app.contentResolver.openOutputStream(destination, "wt") },
+                        readDestination = { app.contentResolver.openInputStream(destination) }
+                    )
+                }
+                saved = true
+                Log.i("SleepDownBackup", "Local export verified; bytes=$bytes")
+                statusMessage = "备份已保存（${Formatter.formatFileSize(app, bytes)}）。应用里的课表和设置没有变化。"
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 showFailure(
                     title = "备份没有保存成功",
                     guidance = "请重新选择保存位置，并确认设备还有足够的可用空间",
                     error = error
                 )
+            } finally {
+                withContext(NonCancellable + Dispatchers.IO) {
+                    // This URI is the new document just returned by CreateDocument, never an imported backup.
+                    if (!saved) runCatching { DocumentsContract.deleteDocument(app.contentResolver, destination) }
+                    prepared?.let { documentExport.discard(it) }
+                }
+                busyLabel = null
             }
-            busyLabel = null
         }
     }
 
@@ -177,7 +207,37 @@ fun BackupRestoreSettingsScreen(
                         iconRes = R.drawable.ic_share_schedule,
                         backdrop = backdrop,
                         onClick = {
-                            if (busyLabel == null) exportLauncher.launch(defaultFileName)
+                            if (busyLabel == null && preparedBackupName == null) {
+                                busyLabel = "正在整理并检查备份…"
+                                statusMessage = null
+                                statusIsError = false
+                                scope.launch {
+                                    var prepared: String? = null
+                                    var pickerOpened = false
+                                    try {
+                                        withContext(Dispatchers.IO) {
+                                            val archive = BackupExportService(app, app.database).export()
+                                            prepared = documentExport.prepare(archive)
+                                        }
+                                        Log.i("SleepDownBackup", "Local export prepared and validated")
+                                        preparedBackupName = prepared
+                                        exportLauncher.launch(defaultBackupFileName())
+                                        pickerOpened = true
+                                    } catch (error: CancellationException) {
+                                        throw error
+                                    } catch (error: Exception) {
+                                        showFailure("无法生成备份", "尚未创建导出文件，现有数据没有变化", error)
+                                    } finally {
+                                        if (!pickerOpened) {
+                                            preparedBackupName = null
+                                            withContext(NonCancellable + Dispatchers.IO) {
+                                                prepared?.let { documentExport.discard(it) }
+                                            }
+                                        }
+                                        busyLabel = null
+                                    }
+                                }
+                            }
                         }
                     )
                     SettingsDivider()
