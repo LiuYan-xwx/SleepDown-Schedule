@@ -126,9 +126,10 @@ object BackupExportMapper {
         val configs = snapshot.configs.associateBy { it.id }
         require(configs.size == snapshot.configs.size) { "schedule config 存在重复 Room ID" }
         val scheduleRoomIds = scheduleIds.keys
-        require(snapshot.configs.all { it.id in scheduleRoomIds }) {
-            "schedule config 引用了不存在的 schedule profile"
-        }
+        // Old global-settings saves could persist a fallback/stale ID without a profile.
+        // Such a config is not a timetable. Keep it available for legacy scheme provenance,
+        // but only export configs owned by the profiles below; do not mutate the source DB.
+        // Orphan course/period/history data must still fail rather than silently lose user data.
         require(snapshot.periods.all { it.scheduleId in scheduleRoomIds }) {
             "period 引用了不存在的 schedule profile"
         }
@@ -161,7 +162,9 @@ object BackupExportMapper {
             scheme.id to BackupStableId.new(BackupStableId.SCHEME_PREFIX)
         }
         require(schemeIds.size == snapshot.periodSchemes.size) { "period scheme 存在重复 Room ID" }
-        require(snapshot.configs.all { it.activePeriodSchemeId == null || it.activePeriodSchemeId in schemeRoomIds }) {
+        require(snapshot.configs.filter { it.id in scheduleRoomIds }.all {
+            it.activePeriodSchemeId == null || it.activePeriodSchemeId in schemeRoomIds
+        }) {
             "课表引用了不存在的共享作息"
         }
         val sharedSchemes = snapshot.periodSchemes.map { scheme ->

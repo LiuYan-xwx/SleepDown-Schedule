@@ -241,6 +241,45 @@ class SharedPeriodSchemeRepositoryTest {
     }
 
     @Test
+    fun globalSettingsBeforeProfilesLoadDoesNotCreateFallbackConfig() = runBlocking {
+        database.configDao().deleteAllConfigs()
+        database.scheduleProfileDao().deleteAllProfiles()
+
+        repository.saveGlobalSettings(defaultConfig().copy(darkMode = true))
+
+        assertTrue(database.configDao().getAllConfigs().isEmpty())
+        assertTrue(database.scheduleProfileDao().getProfiles().isEmpty())
+    }
+
+    @Test
+    fun globalSettingsOnlyUpdatesLiveProfilesAndDoesNotTouchLeftoverConfig() = runBlocking {
+        repository.deleteSchedule(1)
+        val leftover = defaultConfig(1).copy(totalWeeks = 12, darkMode = false)
+        database.configDao().upsertConfig(leftover)
+
+        repository.saveGlobalSettings(leftover.copy(darkMode = true))
+
+        assertEquals(leftover, database.configDao().getConfig(1))
+        assertTrue(requireNotNull(database.configDao().getConfig(2)).darkMode)
+        assertEquals(listOf(2), database.scheduleProfileDao().getProfiles().map { it.id })
+    }
+
+    @Test
+    fun staleScheduleEditorCannotRecreateDeletedConfigurationOrPeriods() = runBlocking {
+        val deletedConfig = requireNotNull(database.configDao().getConfig(1))
+        val deletedPeriods = database.configDao().getPeriods(1)
+        repository.deleteSchedule(1)
+        val before = state()
+
+        rejected { repository.saveConfigForSchedule(1, deletedConfig, deletedPeriods) }
+        rejected { repository.loadPeriodSchemes(1) }
+
+        assertEquals(before, state())
+        assertNull(database.configDao().getConfig(1))
+        assertTrue(database.configDao().getPeriods(1).isEmpty())
+    }
+
+    @Test
     fun occupiedDeleteInAnotherReferencingTableRejectsWholeSharedEdit() = runBlocking {
         database.courseDao().insertCourse(course(2, listOf(2)))
         val saved = repository.publicPeriodSchemes().single()

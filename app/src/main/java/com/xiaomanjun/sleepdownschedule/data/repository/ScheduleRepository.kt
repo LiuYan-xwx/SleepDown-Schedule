@@ -849,10 +849,11 @@ class ScheduleRepository(private val database: AppDatabase) {
     private suspend fun saveGlobalSettingsWith(
         merge: (ScheduleConfigEntity) -> ScheduleConfigEntity
     ) {
-        val activeId = activeScheduleId()
         database.withTransaction {
             val existing = configDao.getAllConfigs()
-            val targetIds = (profileDao.getProfiles().map { it.id } + existing.map { it.id } + activeId).distinct()
+            // Resolve live owners in this transaction. A pre-transaction active ID (or the
+            // startup fallback 1) can already be gone after deleting/restoring a timetable.
+            val targetIds = profileDao.getProfiles().map { it.id }
             targetIds.forEach { id ->
                 val base = existing.firstOrNull { it.id == id } ?: defaultConfig(id)
                 configDao.upsertConfig(merge(base).copy(id = id))
@@ -974,6 +975,7 @@ class ScheduleRepository(private val database: AppDatabase) {
      * while the scheme tables still retained the original timetable.
      */
     private suspend fun ensureScheduleData(scheduleId: Int) {
+        require(profileDao.getProfiles().any { it.id == scheduleId }) { "课表已不存在，请返回当前课表后重试" }
         val config = configDao.getConfig(scheduleId)
         val scheme = config?.activePeriodSchemeId?.let { periodSchemeDao.getScheme(it) }
         if (scheme != null) {
