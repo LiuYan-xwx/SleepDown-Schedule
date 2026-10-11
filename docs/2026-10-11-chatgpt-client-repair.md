@@ -33,3 +33,15 @@
 - 本地交付文件 `tmp/chatgpt-fix-20261011/SleepDown-1.2.7_beta5-chatgpt-fix-release.apk`，SHA-256：`70e800659358de5cd192d87ee84a991e630dc790e38dc093e9f0de08acac82b9`。
 
 未持有测试账号授权，尚未完成真实 ChatGPT 登录、模型调用及官方用量页的账号内验收，不能据单元测试宣称真实服务已恢复。
+
+## 思考强度与页面后续调整
+
+用户反馈账号登录后无法选择思考强度。根因有两处：账号预设返回空档位列表，且 OAuth 请求转换无条件删除整个 `reasoning` 对象。现在设置页、对话快捷选择器和最终请求共用按模型核对的能力表；支持的档位会保留到请求正文。切换模型时不支持的旧档位恢复为中档，未知模型别名使用服务端默认值，避免任意发送不支持的参数。
+
+能力范围来自 [GPT-6 部署说明](https://developers.openai.com/api/docs/guides/deployment-checklist) 和 [官方模型目录](https://developers.openai.com/api/docs/models)，2026-10-11 核对。当前覆盖 GPT-6.1 Sol、GPT-6 Astra/Sol/Luna、GPT-5.6/Sol/Terra/Luna、GPT-5.5、GPT-5.4、GPT-5.2、GPT-5.3-Codex 及对应日期快照；其他账号模型仍可使用默认强度。
+
+退出登录移至与自动更新课表页一致的底部悬浮 `SettingsActionButton`，复用页面内容采样层和安全区。刷新模型移至模型分组标题右侧，使用公共中性按钮颜色。选择思考强度立即保存，作用于 AI 对话、助理和课表识别。
+
+本次完整 `assembleGithubRelease` 通过（保留 R8、资源压缩、lintVital 和正式签名）；`AiProviderPresetsTest`、`ChatGptResponsesWireTest`、`ChatGptSettingsStoreTest` 共 33 项通过。2026-10-11 22:57 经 5038 有线通道覆盖安装到 PLJ110 成功，未自动启动或清除数据。真实账号调用与页面视觉仍待用户验收。
+
+交付文件：`tmp/chatgpt-reasoning-20261011/SleepDown-1.2.7_beta5-chatgpt-reasoning-release.apk`，SHA-256：`7f171e065b2698ed157f072c0c34f8a7b78baa9f250f7d1f97578e0eb1229f84`。正式包名、版本和签名不变，APK 内 `edu_adapter_test` 资产数量为零。

@@ -7,6 +7,36 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class ChatGptResponsesWireTest {
+    @Test fun selectedEffortReachesAccountRequestAndKeepsReasoningSummary() {
+        listOf("low", "medium", "high", "xhigh", "max").forEach { effort ->
+            val request = chatGptResponsesBody(Json.parseToJsonElement("""{
+              "model":"gpt-6.1-sol","input":[],"reasoning":{"effort":"$effort","summary":"auto"}
+            }""").jsonObject)
+            assertEquals(effort, request["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+            assertEquals("auto", request["reasoning"]!!.jsonObject["summary"]!!.jsonPrimitive.content)
+        }
+    }
+
+    @Test fun modelSwitchCannotSendUnsupportedEffort() {
+        val request = chatGptResponsesBody(Json.parseToJsonElement("""{
+          "model":"gpt-6.1-sol","input":[],"reasoning":{"effort":"none"}
+        }""").jsonObject)
+        assertEquals("medium", request["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+        val disabled = chatGptResponsesBody(Json.parseToJsonElement("""{
+          "model":"gpt-5.6-sol","input":[],"reasoning":{"effort":"none"}
+        }""").jsonObject)
+        assertEquals("none", disabled["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun supportedLevelsFollowConcreteModelAndUnknownAliasesUseServerDefault() {
+        assertEquals(listOf("low", "medium", "high", "xhigh", "max"),
+            AiProviderPresets.reasoningEfforts(AiProviderPresets.chatGpt.copy(defaultModel = "gpt-6.1-sol"))
+                .map { it.apiValue })
+        assertEquals(listOf("none", "low", "medium", "high", "xhigh"),
+            chatGptReasoningEfforts("gpt-5.4-2026-03-05").map { it.apiValue })
+        assertTrue(chatGptReasoningEfforts("gpt-5.4-unknown").isEmpty())
+        assertFalse(chatGptReasoningEfforts("gpt-5.3-codex").contains(AiReasoningEffort.NONE))
+    }
     @Test fun logoutDisconnectsActiveStreamsAndRejectsLateRegistration() {
         val connection = object : HttpURLConnection(URL("https://api.openai.com/v1/responses")) {
             var disconnected = false

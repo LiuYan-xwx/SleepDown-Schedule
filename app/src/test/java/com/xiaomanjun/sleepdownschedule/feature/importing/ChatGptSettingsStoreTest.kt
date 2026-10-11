@@ -24,6 +24,17 @@ class ChatGptSettingsStoreTest {
     }
 
     @Test
+    fun accountReasoningChoicePersistsAcrossRuntimeAndProviderSwitches() {
+        val profile = AiProviderPresets.chatGpt.copy(defaultModel = "gpt-6.1-sol", reasoningEffort = AiReasoningEffort.XHIGH)
+        AiImportSettingsStore.save(context, AiImportSettings(profile, ""))
+        assertEquals(AiReasoningEffort.XHIGH, AiImportSettingsStore.loadForRuntime(context)!!.profile.reasoningEffort)
+        AiImportSettingsStore.save(context, AiImportSettings(AiProviderPresets.none, ""))
+        assertEquals(AiReasoningEffort.XHIGH, AiImportSettingsStore.loadProvider(context, "chatgpt").profile.reasoningEffort)
+        assertEquals(AiReasoningEffort.MEDIUM, AiProviderPresets.normalizeChatGptProfile(
+            profile.copy(reasoningEffort = AiReasoningEffort.NONE)).reasoningEffort)
+    }
+
+    @Test
     fun freshInstallOffersAccountLoginWithoutTheLegacyApiForm() {
         val ids = AiImportSettingsStore.selectableProfiles(context).map { it.id }
 

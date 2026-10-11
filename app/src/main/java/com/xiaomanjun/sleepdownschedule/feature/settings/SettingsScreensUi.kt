@@ -23,6 +23,10 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -50,6 +54,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Brush
+import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
+import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
+import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
+import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -548,6 +558,8 @@ fun AiImportSettingsSection(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val remoteConfigState by SleepDownRemoteConfig.state.collectAsStateWithLifecycle()
+    val chatGptAuth by ChatGptAuthManager.state.collectAsStateWithLifecycle()
+    var chatGptSigningOut by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(AiImportSettingsStore.load(context)) }
     var selectedProviderId by remember(saved.profile.id) { mutableStateOf(saved.profile.id) }
     var customProviderName by remember(saved.profile.id) { mutableStateOf(saved.profile.displayName) }
@@ -639,6 +651,7 @@ fun AiImportSettingsSection(
     val modelSupportsResponses = AiProviderPresets.supportsResponses(modelProfile)
     val reasoningOptions = AiProviderPresets.reasoningEfforts(modelProfile)
     val effectiveReasoningEffort = reasoningEffort.takeIf { it in reasoningOptions }
+        ?: AiReasoningEffort.MEDIUM.takeIf { isChatGptProvider }
         ?: reasoningOptions.firstOrNull()
         ?: AiReasoningEffort.MEDIUM
     val endpointStyle = if (responsesEnabled && modelSupportsResponses) {
@@ -833,9 +846,16 @@ fun AiImportSettingsSection(
     }
 
     val topPadding = detailContentTopPadding()
+    val pageColor = settingsPageBackground(state.config)
+    val contentBackdrop = rememberGlassLayerBackdrop(GlassBackdropDomain.Content, "ai-settings-body") {
+        drawRect(pageColor)
+        drawContent()
+    }
+    Box(Modifier.fillMaxSize()) {
     SleepDownSecondaryPageList(
         contentTopPadding = topPadding,
-        contentBottomPadding = DockScrollPadding
+        contentBottomPadding = DockScrollPadding,
+        modifier = Modifier.fillMaxSize().glassBackdropProducer(contentBackdrop)
     ) {
         item(key = "ai-provider") {
             GlassPreferenceSection("服务商") {
@@ -872,6 +892,12 @@ fun AiImportSettingsSection(
                     config = state.config,
                     backdrop = backdrop,
                     selectedModel = model,
+                    reasoningEffort = effectiveReasoningEffort,
+                    signingOut = chatGptSigningOut,
+                    onReasoningChanged = { selected ->
+                        reasoningEffort = selected
+                        AiImportSettingsStore.save(context, AiImportSettings(profile.copy(reasoningEffort = selected), ""))
+                    },
                     onBeforeLogin = {
                         AiImportSettingsStore.save(context, AiImportSettings(profile, ""))
                     },
@@ -879,6 +905,7 @@ fun AiImportSettingsSection(
                         availableModelsText = models.joinToString("\n") { it.slug }
                         model = selected.slug
                         supportsVision = selected.supportsImages
+                        reasoningEffort = chatGptReasoningEffort(selected.slug, reasoningEffort)
                         modelUsesCustomInput = false
                         // Other AI entry points must see the selected model immediately.
                         AiImportSettingsStore.save(context, AiImportSettings(
@@ -1151,6 +1178,29 @@ fun AiImportSettingsSection(
                 )
             }
         }
+    }
+    if (isChatGptProvider && chatGptAuth.account?.isSignedIn == true && !chatGptAuth.isSigningIn) {
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(168.dp)
+            .background(Brush.verticalGradient(listOf(pageColor.copy(alpha = 0f),
+                pageColor.copy(alpha = 0.36f), pageColor.copy(alpha = 0.70f), pageColor.copy(alpha = 0.94f)))))
+        SettingsActionButton(
+            label = if (chatGptSigningOut) "正在退出…" else "退出登录",
+            backdrop = contentBackdrop, destructive = true, glowing = true,
+            modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 18.dp).fillMaxWidth(),
+            onClick = {
+                if (!chatGptSigningOut) {
+                    chatGptSigningOut = true
+                    scope.launch {
+                        try { message = ChatGptAuthManager.signOut(context).message }
+                        catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) { message = "退出未完成，请重试。" }
+                        finally { chatGptSigningOut = false }
+                    }
+                }
+            }
+        )
+    }
     }
     if (showDeleteProviderConfirm) {
         LiquidAlertDialog(

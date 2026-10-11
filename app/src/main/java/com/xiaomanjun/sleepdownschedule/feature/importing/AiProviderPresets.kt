@@ -298,7 +298,7 @@ object AiProviderPresets {
         availableModels = profile.availableModels.map(String::trim).filter(String::isNotBlank).distinct(),
         supportsVision = profile.supportsVision,
         capabilities = chatGpt.capabilities.copy(supportsImageInput = profile.supportsVision),
-        reasoningEffort = profile.reasoningEffort
+        reasoningEffort = chatGptReasoningEffort(profile.defaultModel, profile.reasoningEffort)
     )
 
     fun isCustomId(id: String): Boolean = id == custom.id || id.startsWith("${custom.id}:")
@@ -429,8 +429,7 @@ object AiProviderPresets {
         profile.endpointStyle == AiEndpointStyle.RESPONSES && supportsResponses(profile)
 
     fun reasoningEfforts(profile: AiProviderProfile): List<AiReasoningEffort> {
-        // Account model discovery does not advertise supported effort levels yet.
-        if (isChatGptId(profile.id)) return emptyList()
+        if (isChatGptId(profile.id)) return chatGptReasoningEfforts(profile.defaultModel)
         if (!supportsResponses(profile)) return emptyList()
         val model = profile.defaultModel.trim().lowercase()
         return when {

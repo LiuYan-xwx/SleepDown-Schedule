@@ -158,6 +158,7 @@ internal fun AiRuntimePicker(
                         val supportedEfforts = AiProviderPresets.reasoningEfforts(candidate)
                         val nextProfile = candidate.copy(
                             reasoningEffort = candidate.reasoningEffort.takeIf { it in supportedEfforts }
+                                ?: AiReasoningEffort.MEDIUM.takeIf { AiProviderPresets.isChatGptId(candidate.id) }
                                 ?: supportedEfforts.firstOrNull()
                                 ?: candidate.reasoningEffort
                         )

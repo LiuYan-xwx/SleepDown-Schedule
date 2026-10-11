@@ -4,12 +4,14 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,6 +21,8 @@ import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.DialogLiquidButton
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SleepDownLiquidDropdownPreference
 import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiReasoningEffort
+import com.xiaomanjun.sleepdownschedule.feature.importing.chatGptReasoningEfforts
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthException
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptBrowser
@@ -32,6 +36,9 @@ internal fun ChatGptSettingsPanel(
     config: ScheduleConfigEntity,
     backdrop: Backdrop?,
     selectedModel: String,
+    reasoningEffort: AiReasoningEffort,
+    signingOut: Boolean,
+    onReasoningChanged: (AiReasoningEffort) -> Unit,
     onBeforeLogin: () -> Unit,
     onModelsChanged: (List<ChatGptModel>, ChatGptModel) -> Unit
 ) {
@@ -43,7 +50,6 @@ internal fun ChatGptSettingsPanel(
     val models = auth.models
     val signedIn = account?.isSignedIn == true
     val planEnabled = signedIn && account?.planUsageEnabled == true
-    var signingOut by remember { mutableStateOf(false) }
     var actionMessage by remember(account?.id) { mutableStateOf<String?>(null) }
     val latestSelectedModel by rememberUpdatedState(selectedModel)
     val latestModelsChanged by rememberUpdatedState(onModelsChanged)
@@ -117,29 +123,20 @@ internal fun ChatGptSettingsPanel(
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
-                if (signedIn && !auth.isSigningIn) {
-                    SettingsDivider()
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
-                        DialogLiquidButton(
-                            label = if (signingOut) "正在退出…" else "退出登录",
-                            backdrop = backdrop, enabled = !signingOut,
-                            onClick = {
-                                signingOut = true
-                                scope.launch {
-                                    try {
-                                        actionMessage = ChatGptAuthManager.signOut(context).message
-                                    } catch (cancelled: CancellationException) { throw cancelled }
-                                    catch (_: Exception) { actionMessage = "退出未完成，请重试。" }
-                                    finally { signingOut = false }
-                                }
-                            }
-                        )
-                    }
-                }
             }
         }
         if (planEnabled) {
-            GlassPreferenceSection("模型") {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GlassPreferenceCategory("模型与思考", Modifier.weight(1f))
+                    DialogLiquidButton(
+                        label = if (auth.isLoadingModels) "刷新中…" else "刷新模型",
+                        backdrop = backdrop, iconRes = R.drawable.ic_refresh,
+                        monochromeNeutral = true, height = 40.dp, horizontalPadding = 12.dp,
+                        enabled = !auth.isLoadingModels && !auth.isSigningIn && !signingOut,
+                        onClick = { scope.launch { refreshModels() } }
+                    )
+                }
                 SettingsGroup(backdrop = backdrop, config = config, modifier = Modifier.fillMaxWidth()) {
                     if (models.isNotEmpty()) {
                         SleepDownLiquidDropdownPreference(
@@ -152,16 +149,24 @@ internal fun ChatGptSettingsPanel(
                             onSelectedIndexChange = { index -> models.getOrNull(index)?.let { onModelsChanged(models, it) } }
                         )
                     } else {
-                        SettingsInfoRow("可用模型", if (auth.isLoadingModels) "正在读取…" else "暂未获取到模型，点击下方重试。")
+                        SettingsInfoRow("可用模型", if (auth.isLoadingModels) "正在读取…" else "暂未获取到模型，请刷新后重试。")
                     }
-                    SettingsDivider()
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
-                        DialogLiquidButton(
-                            label = if (auth.isLoadingModels) "正在刷新…" else "刷新模型",
-                            backdrop = backdrop, iconRes = R.drawable.ic_refresh,
-                            enabled = !auth.isLoadingModels && !auth.isSigningIn && !signingOut,
-                            onClick = { scope.launch { refreshModels() } }
-                        )
+                    if (models.isNotEmpty()) {
+                        SettingsDivider()
+                        val efforts = chatGptReasoningEfforts(selectedModel)
+                        if (efforts.isNotEmpty()) {
+                            SleepDownLiquidDropdownPreference(
+                                items = efforts.map { it.label },
+                                selectedIndex = efforts.indexOf(reasoningEffort).coerceAtLeast(0),
+                                title = "思考强度", backdrop = backdrop, config = config,
+                                modifier = Modifier.fillMaxWidth(),
+                                insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                                maxHeight = 318.dp, onExpandedChange = {},
+                                onSelectedIndexChange = { index -> efforts.getOrNull(index)?.let(onReasoningChanged) }
+                            )
+                        } else {
+                            SettingsInfoRow("思考强度", "当前模型使用默认强度，暂未提供可调档位。")
+                        }
                     }
                 }
             }
