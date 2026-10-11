@@ -57,6 +57,31 @@ object AiImportSettingsStore {
         changeVersion.value = changeVersion.value + 1L
     }
 
+    internal const val MigratedOpenAiId = "custom:legacy-openai"
+
+    /** Move the retired entry once, including opaque ciphertext, without decrypting or dropping it. */
+    @Synchronized
+    private fun migrateLegacyOpenAi(prefs: android.content.SharedPreferences) {
+        val oldId = "openai"
+        val active = prefs.getString(KeyProviderId, null) == oldId
+        if (!active && !prefs.contains(providerKey(KeyBaseUrl, oldId)) && !prefs.contains(apiKeyKey(oldId))) return
+        val legacy = readProfileWithoutSecret(prefs, AiProviderPresets.openAI, active)
+        val migrated = legacy.copy(id = MigratedOpenAiId, displayName = "已迁移的自定义接口")
+        val encryptedKey = prefs.getString(apiKeyKey(oldId), null)
+            ?: if (active) prefs.getString(KeyEncryptedApiKey, null) else null
+        val editor = prefs.edit()
+        writeProviderSettings(editor, AiImportSettings(migrated, ""))
+        writeCustomProviderEntry(prefs, editor, migrated)
+        if (encryptedKey != null) editor.putString(apiKeyKey(MigratedOpenAiId), encryptedKey)
+        if (active) {
+            editor.putString(KeyProviderId, MigratedOpenAiId)
+            writeGlobalSettings(editor, migrated)
+            editor.remove(KeyEncryptedApiKey)
+        }
+        prefs.all.keys.filter { it.endsWith("_openai") }.forEach(editor::remove)
+        check(editor.commit()) { "无法迁移旧版 AI 接口设置" }
+    }
+
     fun notifyRemoteConfigChanged() = notifyChanged()
 
     private fun managedFreeSettings(context: Context, prefs: android.content.SharedPreferences): AiImportSettings {
@@ -156,6 +181,7 @@ object AiImportSettingsStore {
 
     fun selectableProfiles(context: Context): List<AiProviderProfile> {
         val prefs = context.getSharedPreferences(PrefName, Context.MODE_PRIVATE)
+        migrateLegacyOpenAi(prefs)
         val entries = readCustomProviders(prefs)
         val namesById = entries.associate { it.id to it.displayName }
         val builtIns = AiProviderPresets.selectable.map { preset ->
@@ -168,13 +194,7 @@ object AiImportSettingsStore {
         val additionalCustomProfiles = entries
             .filter { entry -> entry.id != AiProviderPresets.custom.id }
             .map { entry -> AiProviderPresets.customProfile(entry.id, entry.displayName) }
-        // Retain existing API configurations and ciphertext under their original ID. Fresh
-        // installations see account login instead of the former official OpenAI key form.
-        val legacyOpenAi = AiProviderPresets.openAI.takeIf {
-            prefs.getString(KeyProviderId, null) == it.id ||
-                prefs.contains(providerKey(KeyBaseUrl, it.id)) || prefs.contains(apiKeyKey(it.id))
-        }
-        return builtIns + listOfNotNull(legacyOpenAi) + additionalCustomProfiles
+        return builtIns + additionalCustomProfiles
     }
 
     /**
@@ -183,6 +203,7 @@ object AiImportSettingsStore {
      */
     fun exportForBackup(context: Context): BackupAiImportPreferences {
         val prefs = context.getSharedPreferences(PrefName, Context.MODE_PRIVATE)
+        migrateLegacyOpenAi(prefs)
         val selectedProviderId = prefs.getString(KeyProviderId, AiProviderPresets.none.id).orEmpty()
         val presets = (selectableProfiles(context) + AiProviderPresets.byId(selectedProviderId))
             .distinctBy(AiProviderProfile::id)
@@ -227,6 +248,7 @@ object AiImportSettingsStore {
             }
         }.commit()
         check(committed) { "无法提交 AI import preferences" }
+        migrateLegacyOpenAi(prefs)
         notifyChanged()
     }
 
@@ -379,7 +401,7 @@ object AiImportSettingsStore {
 
     private fun BackupAiProvider.fromBackupProvider(context: Context): AiProviderProfile {
         require(id.matches(Regex("[A-Za-z0-9:_-]{1,128}"))) { "AI provider ID 非法" }
-        val preset = (selectableProfiles(context) + AiProviderPresets.all).firstOrNull { it.id == id }
+        val preset = (selectableProfiles(context) + AiProviderPresets.all + AiProviderPresets.openAI).firstOrNull { it.id == id }
             ?: AiProviderPresets.customProfile(id, displayName)
         val providerType = runCatching { AiProviderType.valueOf(this.providerType) }
             .getOrElse { throw IllegalArgumentException("未知 AI providerType: ${this.providerType}") }
@@ -463,6 +485,7 @@ object AiImportSettingsStore {
 
     fun load(context: Context): AiImportSettings {
         val prefs = context.getSharedPreferences(PrefName, Context.MODE_PRIVATE)
+        migrateLegacyOpenAi(prefs)
         val savedProviderId = prefs.getString(KeyProviderId, AiProviderPresets.none.id).orEmpty()
         val preset = selectableProfiles(context).firstOrNull { it.id == savedProviderId }
             ?: AiProviderPresets.none
@@ -529,7 +552,7 @@ object AiImportSettingsStore {
     fun loadProvider(context: Context, providerId: String): AiImportSettings {
         val prefs = context.getSharedPreferences(PrefName, Context.MODE_PRIVATE)
         val current = load(context)
-        val preset = presetFor(context, providerId)
+        val preset = presetFor(context, if (providerId == "openai") MigratedOpenAiId else providerId)
         if (AiProviderPresets.isManagedFreeId(preset.id)) return managedFreeSettings(context, prefs)
         if (AiProviderPresets.isChatGptId(preset.id)) {
             return chatGptSettings(

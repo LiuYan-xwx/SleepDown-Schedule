@@ -842,7 +842,7 @@ fun AiImportSettingsSection(
                 SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
         SettingsInfoRow(
             "AI 设置",
-            "配置 AI 助理、AI 对话、教务课表解析等智能功能共用的模型服务。ChatGPT 使用账号登录，其他接口的 API Key 分别加密保存在本机。登录凭据不会写入课表备份或诊断日志。选择“无”可停用联网 AI 能力。"
+            "为 AI 助理、对话和课表识别选择服务。选择“无”可关闭联网 AI。"
         )
         AiProviderPickerRow(
             value = if (isCustomProvider) customProviderDisplayName else selectedPreset.displayName,
@@ -880,6 +880,14 @@ fun AiImportSettingsSection(
                         model = selected.slug
                         supportsVision = selected.supportsImages
                         modelUsesCustomInput = false
+                        // Other AI entry points must see the selected model immediately.
+                        AiImportSettingsStore.save(context, AiImportSettings(
+                            AiProviderPresets.normalizeChatGptProfile(profile.copy(
+                                defaultModel = selected.slug,
+                                availableModels = models.map { it.slug },
+                                supportsVision = selected.supportsImages
+                            )), ""
+                        ))
                     }
                 )
             }

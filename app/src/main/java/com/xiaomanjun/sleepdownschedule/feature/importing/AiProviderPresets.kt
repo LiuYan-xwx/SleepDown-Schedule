@@ -35,9 +35,10 @@ object AiProviderPresets {
         structuredOutputMode = StructuredOutputMode.PROMPT_ONLY
     )
 
-    val openAI = AiProviderProfile(
+    // Decode old preferences/backups only; new configurations use a custom provider.
+    internal val openAI = AiProviderProfile(
         id = "openai",
-        displayName = "旧版 OpenAI API（保留）",
+        displayName = "已迁移的自定义接口",
         providerType = AiProviderType.OpenAIResponses,
         baseUrl = "https://api.openai.com/v1",
         defaultModel = "gpt-5.6",
@@ -285,7 +286,7 @@ object AiProviderPresets {
 
     val selectable = listOf(none, dailyFree, chatGpt, deepSeek, mimo, custom)
 
-    val all = listOf(none, dailyFree, chatGpt, openAI, deepSeek, dashScope, kimi, zhipu, qianfan, doubao, hunyuan, siliconFlow, miniMax, mimo, mimoTokenPlan, custom)
+    val all = listOf(none, dailyFree, chatGpt, deepSeek, dashScope, kimi, zhipu, qianfan, doubao, hunyuan, siliconFlow, miniMax, mimo, mimoTokenPlan, custom)
 
     fun isManagedFreeId(id: String): Boolean = id == dailyFree.id
 
@@ -307,7 +308,8 @@ object AiProviderPresets {
 
     fun byId(id: String): AiProviderProfile = when {
         isCustomId(id) -> customProfile(id)
-        else -> all.firstOrNull { it.id == id } ?: openAI
+        id == openAI.id -> openAI
+        else -> all.firstOrNull { it.id == id } ?: none
     }
 
     fun modelOptions(providerId: String): List<AiModelOption> = when (providerId) {

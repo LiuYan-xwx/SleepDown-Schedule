@@ -357,8 +357,24 @@ private fun postResponsesStreaming(
             throw AiServiceResponseException(formatAiRequestError(status, text, providerId, connection.getHeaderField("x-request-id")),
                 if (authType == AiAuthType.ChatGptOAuth) "" else text, httpStatus = status)
         }
-        if (!connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
-            check(authType != AiAuthType.ChatGptOAuth) { "ChatGPT 未返回要求的事件流，请重试。" }
+        if (authType == AiAuthType.ChatGptOAuth) {
+            val activityAccumulator = ResponsesSseAccumulator(requireCompleted = true)
+            val reasoningPublisher = AiReasoningStreamPublisher(requestContext.onReasoningUpdate)
+            var firstEvent = true
+            val response = connection.readChatGptResponse(
+                checkActive = { requestContext.interaction?.checkActive() }
+            ) { payload ->
+                trace.onEvent()
+                if (firstEvent) { firstEvent = false; trace.mark(AiImportHttpPhase.FIRST_EVENT) }
+                activityAccumulator.consume(payload)
+                activityAccumulator.activities.forEach { requestContext.interaction?.publishActivity(it) }
+                reasoningPublisher.publish(activityAccumulator.displayReasoning)
+                requestContext.interaction?.publishStream(activityAccumulator.reasoning.isNotEmpty(), activityAccumulator.courseOutput)
+            }
+            finishAiImportStream(response, publishFinal = {
+                publishNonStreamingImportActivity(response, AiEndpointStyle.RESPONSES, requestContext)
+            }, onEnd = { trace.mark(AiImportHttpPhase.STREAM_END) })
+        } else if (!connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
             trace.mark(AiImportHttpPhase.BODY_READ_START)
             connection.inputStream.bufferedReader().use { it.readAiBoundedText() }
                 .also {

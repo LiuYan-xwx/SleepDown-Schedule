@@ -44,12 +44,15 @@ class ChatGptSettingsStoreTest {
         val settings = AiImportSettingsStore.load(context)
         val profiles = AiImportSettingsStore.selectableProfiles(context)
 
-        assertEquals("openai", settings.profile.id)
+        assertEquals(AiImportSettingsStore.MigratedOpenAiId, settings.profile.id)
         assertEquals("https://compatible.example/v1", settings.profile.baseUrl)
         assertEquals("existing-model", settings.profile.defaultModel)
-        assertEquals("旧版 OpenAI API（保留）", settings.profile.displayName)
-        assertTrue(profiles.any { it.id == "openai" })
-        assertEquals("existing-opaque-ciphertext", preferences.getString("encrypted_api_key_openai", null))
+        assertEquals("已迁移的自定义接口", settings.profile.displayName)
+        assertFalse(profiles.any { it.id == "openai" })
+        assertEquals("existing-opaque-ciphertext", preferences.getString("encrypted_api_key_custom:legacy-openai", null))
+        assertFalse(preferences.contains("encrypted_api_key_openai"))
+        AiImportSettingsStore.load(context)
+        assertEquals(1, AiImportSettingsStore.selectableProfiles(context).count { it.id == AiImportSettingsStore.MigratedOpenAiId })
     }
 
     @Test
@@ -63,9 +66,9 @@ class ChatGptSettingsStoreTest {
         AiImportSettingsStore.save(context, AiImportSettings(AiProviderPresets.chatGpt, ""))
         val backup = AiImportSettingsStore.exportForBackup(context)
 
-        assertEquals("retained-ciphertext", preferences.getString("encrypted_api_key_openai", null))
+        assertEquals("retained-ciphertext", preferences.getString("encrypted_api_key_custom:legacy-openai", null))
         assertEquals("retained-custom-ciphertext", preferences.getString("encrypted_api_key_custom:existing", null))
-        assertTrue(backup.providers.any { it.id == "openai" })
+        assertTrue(backup.providers.any { it.id == AiImportSettingsStore.MigratedOpenAiId })
         assertEquals("chatgpt", backup.selectedProviderId)
     }
 
@@ -114,17 +117,20 @@ class ChatGptSettingsStoreTest {
             .putString("model", "retained-model")
             .putString("encrypted_api_key_openai", "retained-ciphertext")
             .commit()
-        val backup = AiImportSettingsStore.exportForBackup(context)
+        val exported = AiImportSettingsStore.exportForBackup(context)
+        val backup = exported.copy(selectedProviderId = "openai", providers = exported.providers.map {
+            if (it.id == AiImportSettingsStore.MigratedOpenAiId) it.copy(id = "openai") else it
+        })
         // A backup can be restored before this installation has a legacy provider entry.
         preferences.edit().remove("provider_id").remove("base_url_openai").commit()
 
         AiImportSettingsStore.applyBackupPreferences(context, backup)
 
         val restored = AiImportSettingsStore.load(context)
-        assertEquals("openai", restored.profile.id)
+        assertEquals(AiImportSettingsStore.MigratedOpenAiId, restored.profile.id)
         assertEquals("https://compatible.example/v1", restored.profile.baseUrl)
         assertEquals("retained-model", restored.profile.defaultModel)
-        assertEquals("旧版 OpenAI API（保留）", restored.profile.displayName)
-        assertEquals("retained-ciphertext", preferences.getString("encrypted_api_key_openai", null))
+        assertEquals("已迁移的自定义接口", restored.profile.displayName)
+        assertEquals("retained-ciphertext", preferences.getString("encrypted_api_key_custom:legacy-openai", null))
     }
 }
