@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.Modifier
@@ -55,12 +56,19 @@ private const val SwitchGroupDelayMillis = 18
 private val SwitchContentSpring = spring<Float>(dampingRatio = 0.74f, stiffness = 260f, visibilityThreshold = 0.0015f)
 // Only the content tracks overshoot. The wallpaper/page settles monotonically underneath them.
 private val SwitchPageMotion = tween<Float>(360, easing = CubicBezierEasing(0.22f, 0.72f, 0.20f, 1f))
+// Nexio's main-tab motion: one non-bouncy page translation, without per-card tracks.
+private val SwitchPlainSlide = spring<Float>(dampingRatio = 1f, stiffness = 320f, visibilityThreshold = 0.0015f)
 
 internal enum class HomeSwitchClip { None, Page, TopBar }
 
-/** The page arrives first; the accepted content springs follow in six staggered groups. */
+/** Sparse pages stagger content; pages with more than ten cards move as a single surface. */
 @Stable
-internal class HomeSwitchMotion(initialSecondary: Boolean, private val target: State<Boolean>, val landscape: Boolean = false) {
+internal class HomeSwitchMotion(
+    initialSecondary: Boolean,
+    private val target: State<Boolean>,
+    val landscape: Boolean = false,
+    private val renderedCardCount: () -> Int = { 0 }
+) {
     private val page = Animatable(if (initialSecondary) 1f else 0f)
     private val tracks = List(SwitchGroupCount) { Animatable(if (initialSecondary) 1f else 0f) }
     // Animatable resets velocity on cancellation. Keep the last frame for a continuous reversal.
@@ -68,28 +76,41 @@ internal class HomeSwitchMotion(initialSecondary: Boolean, private val target: S
     private val velocities = FloatArray(SwitchGroupCount)
     private var settledSecondary by mutableStateOf(initialSecondary)
     private var running by mutableStateOf(false)
+    // Latch once per switch (including reversals), so a count update cannot jump live cards.
+    private var latchedPlainSlide by mutableStateOf(false)
+    // Decide while idle as data loads, before the first moving frame mounts card layers.
+    // Cards subscribe to the chosen style, not the start/end flags themselves. Both branches
+    // remain true for a dense page; forwarding running would recompose every unchanged card.
+    val plainSlide: Boolean by derivedStateOf(structuralEqualityPolicy()) {
+        if (running) latchedPlainSlide else renderedCardCount() > 10
+    }
     val progress: State<Float> = page.asState()
     val moving: Boolean get() = running || settledSecondary != target.value
 
     // Keep sampling throughout the stagger and the spring's overshoot/settling frames.
     // All glass consumers share one immutable key per frame instead of rebuilding the same
     // lists for every card's sample pass. State reads remain in drawing, outside composition.
-    val sampleKey: List<Float> by derivedStateOf { listOf(page.value) + tracks.map { it.value } }
+    val sampleKey: List<Float> by derivedStateOf {
+        if (plainSlide) listOf(page.value) else listOf(page.value) + tracks.map { it.value }
+    }
     val pageSampleKey: Any by derivedStateOf { Triple(page.value, cornerFraction, moving) }
 
     val cornerFraction: Float by derivedStateOf {
             // Follow the whole motion envelope. Clamping progress to 0..1 erased the corners
             // at the first endpoint crossing, exactly when the spring started rebounding.
             fun edgeDistance(value: Float) = min(abs(value), abs(1f - value))
-            val distance = maxOf(edgeDistance(page.value), tracks.maxOf { edgeDistance(it.value) })
+            val distance = if (plainSlide) edgeDistance(page.value)
+                else maxOf(edgeDistance(page.value), tracks.maxOf { edgeDistance(it.value) })
             val fraction = (distance / 0.06f).coerceIn(0f, 1f)
             fraction * fraction * (3f - 2f * fraction)
         }
 
     fun retains(secondary: Boolean): Boolean = moving || settledSecondary == secondary
-    fun groupProgress(group: Int): Float = tracks[group.coerceIn(0, SwitchGroupCount - 1)].value
+    fun groupProgress(group: Int): Float = if (plainSlide) page.value
+        else tracks[group.coerceIn(0, SwitchGroupCount - 1)].value
 
     suspend fun settleAt(secondary: Boolean) {
+        latchedPlainSlide = renderedCardCount() > 10
         val destination = if (secondary) 1f else 0f
         page.snapTo(destination)
         tracks.forEach { it.snapTo(destination) }
@@ -100,6 +121,7 @@ internal class HomeSwitchMotion(initialSecondary: Boolean, private val target: S
     }
 
     suspend fun animateTo(secondary: Boolean) {
+        if (!running) latchedPlainSlide = renderedCardCount() > 10
         val destination = if (secondary) 1f else 0f
         if (page.value == destination && pageVelocity == 0f &&
             tracks.all { it.value == destination } && velocities.all { it == 0f }) {
@@ -115,8 +137,10 @@ internal class HomeSwitchMotion(initialSecondary: Boolean, private val target: S
         running = true
         var completed = false
         try {
-            if (landscape) {
-                page.animateTo(destination, tween(360, easing = CubicBezierEasing(0.22f, 0.72f, 0.20f, 1f)))
+            if (plainSlide || landscape) {
+                page.animateTo(destination,
+                    animationSpec = if (plainSlide) SwitchPlainSlide else SwitchPageMotion,
+                    initialVelocity = pageVelocity) { pageVelocity = velocity }
                 pageVelocity = 0f
                 tracks.forEach { it.snapTo(destination) }
                 velocities.fill(0f)
@@ -154,11 +178,19 @@ internal class HomeSwitchMotion(initialSecondary: Boolean, private val target: S
 }
 
 @Composable
-internal fun rememberHomeSwitchMotion(secondary: Boolean, label: String, animate: Boolean = true): HomeSwitchMotion {
+internal fun rememberHomeSwitchMotion(
+    secondary: Boolean,
+    label: String,
+    animate: Boolean = true,
+    renderedCardCount: () -> Int = { 0 }
+): HomeSwitchMotion {
     val target = rememberUpdatedState(secondary)
+    val latestCardCount = rememberUpdatedState(renderedCardCount)
     val configuration = LocalConfiguration.current
     val landscape = configuration.screenWidthDp > configuration.screenHeightDp
-    val motion = remember(label, landscape) { HomeSwitchMotion(secondary, target, landscape) }
+    val motion = remember(label, landscape) {
+        HomeSwitchMotion(secondary, target, landscape) { latestCardCount.value() }
+    }
     LaunchedEffect(motion, secondary, animate) {
         if (animate) motion.animateTo(secondary) else motion.settleAt(secondary)
     }
@@ -172,26 +204,31 @@ internal fun Modifier.homeSwitchLayer(
     pageClip: HomeSwitchClip = HomeSwitchClip.None
 ): Modifier {
     val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
-    if (motion.landscape) return graphicsLayer {
-        val visibility = (if (secondary) motion.progress.value else 1f - motion.progress.value).coerceIn(0f, 1f)
-        alpha = visibility
-        scaleX = 0.96f + 0.04f * visibility
-        scaleY = scaleX
-        val blur = (1f - visibility) * 10.dp.toPx()
-        renderEffect = if (motion.moving && blur > 0.5f) BlurEffect(blur, blur, TileMode.Clamp) else null
-        clip = motion.moving
-        shape = if (clip) RoundedCornerShape(24.dp) else RectangleShape
-    }
     return graphicsLayer {
-        translationX = direction * size.width * ((if (secondary) 1f else 0f) - motion.progress.value)
-        // Keep rounding through the trailing content's rebound, then release the clip at rest.
-        // Page motion is bounded; the independent content groups still carry the trailing spring.
-        clip = pageClip != HomeSwitchClip.None && motion.moving
-        shape = if (clip) {
-            val radius = 32.dp * motion.cornerFraction
-            val bottom = if (pageClip == HomeSwitchClip.TopBar) 0.dp else radius
-            RoundedCornerShape(topStart = radius, topEnd = radius, bottomEnd = bottom, bottomStart = bottom)
-        } else RectangleShape
+        if (motion.landscape && !motion.plainSlide) {
+            translationX = 0f
+            val visibility = (if (secondary) motion.progress.value else 1f - motion.progress.value).coerceIn(0f, 1f)
+            alpha = visibility
+            scaleX = 0.96f + 0.04f * visibility
+            scaleY = scaleX
+            val blur = (1f - visibility) * 10.dp.toPx()
+            renderEffect = if (motion.moving && blur > 0.5f) BlurEffect(blur, blur, TileMode.Clamp) else null
+            clip = motion.moving
+            shape = if (clip) RoundedCornerShape(24.dp) else RectangleShape
+        } else {
+            alpha = 1f
+            scaleX = 1f
+            scaleY = 1f
+            renderEffect = null
+            translationX = direction * size.width * ((if (secondary) 1f else 0f) - motion.progress.value)
+            // Both motion styles keep the original rounded page clip while moving.
+            clip = pageClip != HomeSwitchClip.None && motion.moving
+            shape = if (clip) {
+                val radius = 32.dp * motion.cornerFraction
+                val bottom = if (pageClip == HomeSwitchClip.TopBar) 0.dp else radius
+                RoundedCornerShape(topStart = radius, topEnd = radius, bottomEnd = bottom, bottomStart = bottom)
+            } else RectangleShape
+        }
     }
 }
 
@@ -202,7 +239,7 @@ private val LocalSwitchPages = staticCompositionLocalOf<List<SwitchPageScope>> {
 @Composable
 internal fun Modifier.homeSwitchGroup(cardOrderFraction: Float? = null): Modifier {
     val pages = LocalSwitchPages.current
-    if (pages.isEmpty() || pages.all { it.motion.landscape }) return this
+    if (pages.isEmpty() || pages.all { it.motion.landscape || it.motion.plainSlide }) return this
     val group = remember { mutableIntStateOf(-1) }
     val tracked = onGloballyPositioned { coordinates ->
         if (group.intValue < 0 || pages.none { it.motion.moving }) {
@@ -217,14 +254,15 @@ internal fun Modifier.homeSwitchGroup(cardOrderFraction: Float? = null): Modifie
             group.intValue = (fraction * SwitchGroupCount).toInt().coerceIn(0, SwitchGroupCount - 1)
         }
     }
-    // Keep the identity RenderNode in place between switches. Attaching/removing a layer on
-    // every course at the first/last moving frame rebuilds their coordinate/sampling chains.
-    // This layer never clips, blurs or forces an offscreen texture at rest.
+    // Sparse pages retain their stagger layer. Dense pages returned above: one page transform
+    // moves all cards, without retaining a redundant transform RenderNode on every card.
     return tracked.graphicsLayer {
-        translationX = if (pages.any { it.motion.moving }) pages.sumOf { page ->
-            (page.direction * page.width.value *
+        translationX = pages.sumOf { page ->
+            // A plain slide never observes per-frame page progress in each card's layer.
+            if (!page.motion.moving || page.motion.plainSlide || page.motion.landscape) 0.0
+            else (page.direction * page.width.value *
                 (page.motion.progress.value - page.motion.groupProgress(group.intValue))).toDouble()
-        }.toFloat() else 0f
+        }.toFloat()
         clip = false
     }
 }
@@ -281,15 +319,32 @@ internal fun HomeSwitchPane(
         val parentFrozen = LocalGlassCoordinatesFrozen.current
         val parentKey = LocalGlassSampleRecordKey.current
         val hiddenKey = remember { Any() }
-        val frozen = remember(visible, parentFrozen) { { !visible || parentFrozen() } }
-        val sampleKey = remember(visible, parentKey) { { if (visible) parentKey() else hiddenKey } }
+        val currentVisible = rememberUpdatedState(visible)
+        val currentParentFrozen = rememberUpdatedState(parentFrozen)
+        val currentParentKey = rememberUpdatedState(parentKey)
+        // The callbacks read changing visibility in drawing. Replacing the callbacks would
+        // instead invalidate every retained glass consumer when this pane appears/disappears.
+        val frozen = remember { { !currentVisible.value || currentParentFrozen.value() } }
+        val sampleKey = remember { { if (currentVisible.value) currentParentKey.value() else hiddenKey } }
+        val parentVisible = LocalHomePaneVisible.current
+        val parentBackgroundFrozen = LocalHomeBackgroundFrozen.current
+        val parentTextFrozen = LocalHomeTextContrastFrozen.current
+        val paneVisible = remember(parentVisible) {
+            derivedStateOf { parentVisible.value && currentVisible.value }
+        }
+        val backgroundFrozen = remember(parentBackgroundFrozen) {
+            derivedStateOf { parentBackgroundFrozen.value || !currentVisible.value }
+        }
+        val textFrozen = remember(parentTextFrozen) {
+            derivedStateOf { parentTextFrozen.value || !currentVisible.value }
+        }
         CompositionLocalProvider(
             LocalSwitchPages provides pages,
-            LocalHomePaneVisible provides (LocalHomePaneVisible.current && visible),
+            LocalHomePaneVisible provides paneVisible,
             LocalGlassCoordinatesFrozen provides frozen,
             LocalGlassSampleRecordKey provides sampleKey,
-            LocalHomeBackgroundFrozen provides (LocalHomeBackgroundFrozen.current || !visible),
-            LocalHomeTextContrastFrozen provides (LocalHomeTextContrastFrozen.current || !visible)
+            LocalHomeBackgroundFrozen provides backgroundFrozen,
+            LocalHomeTextContrastFrozen provides textFrozen
         ) { content() }
     }
 }
@@ -300,7 +355,7 @@ internal fun HomeDayPageDrawingScope(pager: PagerState, page: Int, content: @Com
     val homeSwitching = LocalHomeTextContrastFrozen.current
     val visible by remember(pager, page, homeSwitching) {
         derivedStateOf {
-            if (homeSwitching) page == pager.settledPage else {
+            if (homeSwitching.value) page == pager.settledPage else {
                 val position = pager.currentPage + pager.currentPageOffsetFraction
                 page > position - 1f && page < position + 1f
             }
@@ -309,19 +364,33 @@ internal fun HomeDayPageDrawingScope(pager: PagerState, page: Int, content: @Com
     val parentFrozen = LocalGlassCoordinatesFrozen.current
     val parentKey = LocalGlassSampleRecordKey.current
     val hiddenKey = remember(page) { Any() }
-    val frozen = remember(visible, parentFrozen) { { !visible || parentFrozen() } }
-    val key = remember(visible, parentKey, pager) {
+    val currentVisible = rememberUpdatedState(visible)
+    val currentParentFrozen = rememberUpdatedState(parentFrozen)
+    val currentParentKey = rememberUpdatedState(parentKey)
+    val frozen = remember { { !currentVisible.value || currentParentFrozen.value() } }
+    val key = remember(pager, hiddenKey) {
         derivedStateOf {
-            if (visible) Pair(parentKey(), pager.currentPage + pager.currentPageOffsetFraction) else hiddenKey
+            if (currentVisible.value) Pair(currentParentKey.value(), pager.currentPage + pager.currentPageOffsetFraction) else hiddenKey
         }
     }
     val sampleKey = remember(key) { { key.value } }
+    val parentVisible = LocalHomePaneVisible.current
+    val parentBackgroundFrozen = LocalHomeBackgroundFrozen.current
+    val paneVisible = remember(parentVisible) {
+        derivedStateOf { parentVisible.value && currentVisible.value }
+    }
+    val backgroundFrozen = remember(parentBackgroundFrozen) {
+        derivedStateOf { parentBackgroundFrozen.value || !currentVisible.value }
+    }
+    val textFrozen = remember(homeSwitching, pager) {
+        derivedStateOf { homeSwitching.value || !currentVisible.value || pager.isScrollInProgress }
+    }
     CompositionLocalProvider(
         LocalGlassCoordinatesFrozen provides frozen,
         LocalGlassSampleRecordKey provides sampleKey,
-        LocalHomePaneVisible provides (LocalHomePaneVisible.current && visible),
-        LocalHomeBackgroundFrozen provides (LocalHomeBackgroundFrozen.current || !visible),
-        LocalHomeTextContrastFrozen provides (homeSwitching || !visible || pager.isScrollInProgress)
+        LocalHomePaneVisible provides paneVisible,
+        LocalHomeBackgroundFrozen provides backgroundFrozen,
+        LocalHomeTextContrastFrozen provides textFrozen
     ) {
         Box(Modifier.drawWithContent { if (visible) drawContent() }) { content() }
     }

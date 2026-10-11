@@ -6,6 +6,7 @@ import com.xiaomanjun.sleepdownschedule.glass.ui.*
 import com.xiaomanjun.sleepdownschedule.feature.home.*
 import com.xiaomanjun.sleepdownschedule.feature.settings.*
 import com.xiaomanjun.sleepdownschedule.core.wallpaper.*
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.*
 
 import com.xiaomanjun.sleepdownschedule.*
@@ -133,6 +134,16 @@ fun WidgetCustomizationScreen(
     onEditorVisibilityChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
+    var showManualWidgetHelp by remember { mutableStateOf(false) }
+    if (showManualWidgetHelp) {
+        LiquidAlertDialog(
+            title = "手动添加安卓小部件",
+            message = "小米桌面限制了应用内直接添加。请返回桌面，长按空白处进入桌面设置，选择“添加小部件” → “安卓小部件”，找到 SleepDown 后选择需要的小组件。不同桌面版本的入口名称可能略有不同。",
+            actions = listOf(LiquidAlertAction("知道了", LiquidAlertActionStyle.Primary, onClick = { showManualWidgetHelp = false })),
+            backdrop = backdrop, config = state.config,
+            onDismissRequest = { showManualWidgetHelp = false }
+        )
+    }
     val scope = rememberCoroutineScope()
     val app = context.applicationContext as CourseScheduleApp
     val repository = app.widgetAppearanceRepository
@@ -238,7 +249,11 @@ fun WidgetCustomizationScreen(
     val currentId = WidgetDefaultAppearanceId
     val current = widgetAppearanceForType(appearances, selectedType, currentId)
     val darkPage = appUsesDarkTheme(state.config)
-    val hasWallpaper = current.wallpaperUri != null
+    val hasWallpaper = current.enabled && current.wallpaperUri != null
+    val hasBackgroundImage = appearances.any { it.variant == selectedType.key && it.wallpaperUri != null }
+    val backgroundEnabled = current.enabled || appearances.any {
+        it.variant == selectedType.key && it.enabled && it.wallpaperUri != null
+    }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -343,16 +358,19 @@ fun WidgetCustomizationScreen(
                     ) {
                     LiquidMenuButton(
                         backdrop = backdrop,
-                        label = if (widgetPreviews[selectedType] == null) "加载预览…" else "添加到桌面",
+                        label = "添加到桌面",
                         onClick = {
-                            val preview = widgetPreviews[selectedType] ?: return@LiquidMenuButton
-                            val extras = Bundle().apply {
-                                putParcelable(AppWidgetManager.EXTRA_APPWIDGET_PREVIEW, preview)
-                            }
-                            val requested = manager.isRequestPinAppWidgetSupported &&
-                                manager.requestPinAppWidget(providerComponent(selectedType), extras, null)
-                            if (!requested) {
-                                Toast.makeText(context, "当前桌面不支持直接添加，请在桌面长按空白处添加小组件", Toast.LENGTH_LONG).show()
+                            if (requiresManualWidgetPin(android.os.Build.BRAND, android.os.Build.MANUFACTURER)) {
+                                showManualWidgetHelp = true
+                            } else {
+                                try {
+                                    val preview = widgetPinPreview(context, selectedType, widgetPreviews[selectedType])
+                                    val extras = Bundle().apply { putParcelable(AppWidgetManager.EXTRA_APPWIDGET_PREVIEW, preview) }
+                                    requestWidgetPin(context, providerComponent(selectedType), extras)
+                                } catch (error: Exception) {
+                                    android.util.Log.e("WidgetPreview", "Unable to prepare pin preview for ${selectedType.key}", error)
+                                    Toast.makeText(context, "小组件预览生成失败，请稍后重试", Toast.LENGTH_LONG).show()
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -388,12 +406,18 @@ fun WidgetCustomizationScreen(
                 SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
                     SettingsToggleRow(
                         title = "使用自定义背景",
-                        subtitle = if (current.wallpaperUri == null) "先选择一张图片" else "关闭后保留图片与取景，再次开启即可沿用。",
-                        checked = current.enabled,
+                        subtitle = if (!hasBackgroundImage) "先选择一张图片" else "同时控制已添加的同类组件；关闭后保留各自图片与取景。",
+                        checked = backgroundEnabled,
                         backdrop = backdrop,
-                        enabled = current.wallpaperUri != null,
+                        enabled = hasBackgroundImage,
                         onCheckedChange = { enabled ->
-                            saveDefault(selectedType) { it.copy(enabled = enabled) }
+                            val targetType = selectedType
+                            appearances = appearances.map { if (it.variant == targetType.key) it.copy(enabled = enabled) else it }
+                            scope.launch {
+                                repository.setBackgroundEnabled(targetType, enabled)
+                                reload()
+                                refresh(targetType)
+                            }
                         }
                     )
                     SettingsDivider()
@@ -591,10 +615,11 @@ private fun WidgetRemoteViewsPreview(
 ) {
     val context = LocalContext.current
     val renderSize = remember(type) { canonicalWidgetPreviewSize(type) }
+    val systemUiMode = androidx.compose.ui.platform.LocalConfiguration.current.uiMode
     var remoteViews by remember(type) { mutableStateOf<RemoteViews?>(null) }
     val latestOnReady = rememberUpdatedState(onReady)
     val latestOnRemoteViewsReady = rememberUpdatedState(onRemoteViewsReady)
-    LaunchedEffect(type, appearance, state, transparentBackground) {
+    LaunchedEffect(type, appearance, state, transparentBackground, systemUiMode) {
         // Slider/crop gestures can emit dozens of appearance snapshots per second. Keep the
         // last valid preview on screen and collapse that burst into one expensive bitmap pass.
         if (remoteViews != null) delay(90)
@@ -697,7 +722,7 @@ private fun WidgetRemoteViewsPreview(
         val scale = with(density) {
             (maxWidth.toPx() / renderSize.widthDp.dp.toPx()).coerceAtLeast(0.1f)
         }
-        AndroidView(
+        key(type) { AndroidView(
             factory = { viewContext ->
                 FrameLayout(viewContext).apply {
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -709,7 +734,7 @@ private fun WidgetRemoteViewsPreview(
                 val remote = remoteViews ?: return@AndroidView
                 if (host.tag !== remote) {
                     runCatching {
-                        if (host.childCount == 1 && host.tag != null) {
+                        if (host.childCount == 1 && (host.tag as? RemoteViews)?.layoutId == remote.layoutId) {
                             remote.reapply(host.context, host.getChildAt(0))
                         } else {
                             val view = remote.apply(host.context, host)
@@ -734,7 +759,7 @@ private fun WidgetRemoteViewsPreview(
                     scaleX = scale
                     scaleY = scale
                 }
-        )
+        ) }
     }
 }
 

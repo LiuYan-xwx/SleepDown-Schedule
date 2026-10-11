@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.border
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -61,6 +63,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -713,14 +717,18 @@ fun DialogLiquidButton(
         useRoundIcon && role == DialogButtonRole.Confirm -> R.drawable.ic_check
         else -> null
     }
-    val textColor = if (highContrast) Color.White else when (role) {
+    val superPerformance = com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance
+    val neutralFlat = superPerformance && !highContrast && role != DialogButtonRole.Confirm && !destructiveFilled
+    val textColor = if (neutralFlat) {
+        if (controlDark) Color.White else Color.Black
+    } else if (highContrast) Color.White else when (role) {
         DialogButtonRole.Confirm -> Color.White
         DialogButtonRole.Cancel -> Color.White
         DialogButtonRole.Neutral -> if (useMonochromeNeutral) {
             if (controlDark) Color.White else Color.Black
         } else MaterialTheme.colorScheme.primary
     }
-    val surfaceColor = if (highContrast) {
+    val surfaceColor = if (neutralFlat) com.xiaomanjun.sleepdownschedule.glass.flatControlColor(controlDark) else if (highContrast) {
         Color.Black.copy(alpha = if (controlDark) 0.62f else 0.52f)
     } else when (role) {
         DialogButtonRole.Confirm -> Color(0xFF0A84FF).copy(alpha = 0.82f)
@@ -744,6 +752,7 @@ fun DialogLiquidButton(
             isInteractive = enabled,
             height = if (useRoundIcon) 42.dp else height,
             surfaceColor = surfaceColor,
+            flatOpacity = 0.90f,
             contentPadding = if (useRoundIcon) PaddingValues(0.dp) else PaddingValues(horizontal = horizontalPadding),
             blurRadius = blurRadius,
             lensHeight = 16.dp,
@@ -814,53 +823,68 @@ fun DialogCapsuleField(
     minLines: Int = 1,
     cornerRadius: Dp? = null,
     fieldTextColor: Color? = null,
-    fieldLightStyleOverride: Boolean? = null
+    fieldLightStyleOverride: Boolean? = null,
+    enabled: Boolean = true,
+    imeAction: ImeAction = if (minLines == 1) ImeAction.Done else ImeAction.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    visualTransformation: VisualTransformation = if (keyboardType == KeyboardType.Password)
+        PasswordVisualTransformation() else VisualTransformation.None,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     val dark = fieldLightStyleOverride?.not() ?: appUsesDarkTheme(config)
     val fieldBase = if (dark) Color(0xFF2C2C2E) else Color.White
-    val background = fieldBase.copy(alpha = if (dark) 0.54f else 0.70f)
-    val textColor = fieldTextColor ?: LocalContentColor.current
+    val superPerformance = com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance
+    val background = if (superPerformance) com.xiaomanjun.sleepdownschedule.glass.flatControlColor(dark)
+        else fieldBase.copy(alpha = if (dark) 0.54f else 0.70f)
+    val fieldShape = RoundedRectangle(cornerRadius ?: if (minLines == 1)
+        SleepDownDesignTokens.Field.SingleLineCorner else SleepDownDesignTokens.Field.MultiLineCorner)
+    val foreground = fieldTextColor ?: LocalContentColor.current
+    val textColor = if (enabled) foreground else foreground.copy(alpha = foreground.alpha * 0.48f)
+    val verticalPadding = if (minLines == 1) SleepDownDesignTokens.Field.SingleLineVerticalPadding
+        else SleepDownDesignTokens.Field.MultiLineVerticalPadding
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         minLines = minLines,
         singleLine = minLines == 1,
         keyboardOptions = KeyboardOptions(
             keyboardType = keyboardType,
-            imeAction = if (minLines == 1) ImeAction.Done else ImeAction.Default
+            imeAction = imeAction
         ),
+        keyboardActions = keyboardActions,
+        visualTransformation = visualTransformation,
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
         cursorBrush = SolidColor(textColor),
         modifier = modifier
-            .clip(
-                RoundedRectangle(
-                    cornerRadius ?: if (minLines == 1) {
-                        SleepDownDesignTokens.Field.SingleLineCorner
-                    } else {
-                        SleepDownDesignTokens.Field.MultiLineCorner
-                    }
-                )
-            )
+            .clip(fieldShape)
             .background(background)
+            .then(if (superPerformance) Modifier.border(1.dp,
+                com.xiaomanjun.sleepdownschedule.glass.flatControlBorder(dark), fieldShape) else Modifier)
             .padding(
                 horizontal = SleepDownDesignTokens.Field.HorizontalPadding,
-                vertical = if (minLines == 1) {
-                    SleepDownDesignTokens.Field.SingleLineVerticalPadding
-                } else {
-                    SleepDownDesignTokens.Field.MultiLineVerticalPadding
-                }
+                vertical = if (trailingContent == null) verticalPadding else 0.dp
             ),
         decorationBox = { innerTextField ->
-            Box {
-                if (value.isBlank()) {
-                    Text(
-                        placeholder,
-                        color = textColor.copy(alpha = 0.52f),
-                        maxLines = if (minLines == 1) 1 else 2,
-                        overflow = TextOverflow.Clip
-                    )
+            val input: @Composable () -> Unit = {
+                Box {
+                    if (value.isBlank()) {
+                        Text(
+                            placeholder,
+                            color = textColor.copy(alpha = 0.52f),
+                            maxLines = if (minLines == 1) 1 else 2,
+                            overflow = TextOverflow.Clip
+                        )
+                    }
+                    innerTextField()
                 }
-                innerTextField()
+            }
+            if (trailingContent == null) input() else {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f).padding(vertical = verticalPadding)) { input() }
+                    trailingContent()
+                }
             }
         }
     )

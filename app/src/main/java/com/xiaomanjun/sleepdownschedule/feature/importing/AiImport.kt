@@ -39,7 +39,26 @@ class AiScheduleImportService(
     ): Result<AiScheduleImportResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+                withManagedAiFailover(context, settings, requiresVision = file.isImage || (file.isPdf && extractAiImportTextPreview(file) == null)) { candidate, attempt ->
+                    interaction?.checkActive()
+                    val phases: (AiImportHttpPhase) -> Unit = { attempt.observe(it); onHttpPhase(it) }
+                    val reasoning: (String) -> Unit = { if (it.isNotBlank()) attempt.commit(); onReasoningUpdate(it) }
+                    parseScheduleFileOnce(file, candidate, phases, reasoning).getOrThrow()
+                        .copy(managedRouteId = candidate.managedRouteId)
+                }
+            }
+        }
+    }
+
+    private suspend fun parseScheduleFileOnce(
+        file: AiImportFile,
+        settings: AiImportSettings,
+        onHttpPhase: (AiImportHttpPhase) -> Unit,
+        onReasoningUpdate: (String) -> Unit = {}
+    ): Result<AiScheduleImportResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
                 require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
                 require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
                 require(file.bytes.size <= MaxAiImportFileBytes) { "文件不能超过 20MB" }
@@ -75,7 +94,27 @@ class AiScheduleImportService(
     ): Result<AiScheduleImportResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+                withManagedAiFailover(context, settings, requiresVision = false) { candidate, attempt ->
+                    interaction?.checkActive()
+                    val phases: (AiImportHttpPhase) -> Unit = { attempt.observe(it); onHttpPhase(it) }
+                    val reasoning: (String) -> Unit = { if (it.isNotBlank()) attempt.commit(); onReasoningUpdate(it) }
+                    parseScheduleTextOnce(text, sourceName, candidate, phases, reasoning).getOrThrow()
+                        .copy(managedRouteId = candidate.managedRouteId)
+                }
+            }
+        }
+    }
+
+    private suspend fun parseScheduleTextOnce(
+        text: String,
+        sourceName: String,
+        settings: AiImportSettings,
+        onHttpPhase: (AiImportHttpPhase) -> Unit,
+        onReasoningUpdate: (String) -> Unit = {}
+    ): Result<AiScheduleImportResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
                 require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
                 require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
                 val cleaned = text.trim().take(60_000)
@@ -108,7 +147,29 @@ class AiScheduleImportService(
     ): Result<AiScheduleImportResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+                withManagedAiFailover(context, settings, requiresVision = screenshots.isNotEmpty()) { candidate, attempt ->
+                    interaction?.checkActive()
+                    val phases: (AiImportHttpPhase) -> Unit = { attempt.observe(it); onHttpPhase(it) }
+                    val reasoning: (String) -> Unit = { if (it.isNotBlank()) attempt.commit(); onReasoningUpdate(it) }
+                    parseScheduleCapturedPageOnce(text, screenshots, sourceName, warnings, candidate, phases, reasoning).getOrThrow()
+                        .copy(managedRouteId = candidate.managedRouteId)
+                }
+            }
+        }
+    }
+
+    private suspend fun parseScheduleCapturedPageOnce(
+        text: String,
+        screenshots: List<RenderedPageImage>,
+        sourceName: String,
+        warnings: List<String>,
+        settings: AiImportSettings,
+        onHttpPhase: (AiImportHttpPhase) -> Unit,
+        onReasoningUpdate: (String) -> Unit = {}
+    ): Result<AiScheduleImportResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
                 require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
                 require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
                 val cleaned = text.trim().take(60_000)
@@ -159,7 +220,7 @@ class AiScheduleImportService(
         onReasoningUpdate: (String) -> Unit = {}
     ): Result<AiScheduleImportResult> = withContext(Dispatchers.IO) {
         runCatching {
-            require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+            require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
             require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
             require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
             val config = settings.toProviderConfig().normalizedForRequest()
@@ -187,35 +248,16 @@ class AiScheduleImportService(
         history: AiEduImportProgress,
         settings: AiImportSettings,
         onHttpPhase: (AiImportHttpPhase) -> Unit = {},
-        onReasoningUpdate: (String) -> Unit = {}
+        onReasoningUpdate: (String) -> Unit = {},
+        onCheckpoint: (ImportDraft, String) -> Unit = { _, _ -> }
     ): Result<AiScheduleImportResult> = withContext(Dispatchers.IO) {
         runCatching {
-            require(settings.apiKey.isNotBlank()) { "请先在设置中配置 AI API Key" }
+            require(settings.hasCredentialConfiguration()) { "请先在设置中配置 AI API Key" }
             require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
             require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
-            val config = settings.toProviderConfig().normalizedForRequest()
-            val request = buildAiRevisionInput(draft, instruction, history)
-            val networkContext = AiImportNetworkContext(
-                inputType = "REVISION",
-                interaction = interaction,
-                imageCount = history.screenshotPreviews.size,
-                screenshotCount = history.screenshotPreviews.size,
-                onPhase = onHttpPhase,
-                onReasoningUpdate = onReasoningUpdate,
-                processImportanceProvider = { currentAiProcessImportance(context) }
-            )
-            val result = when {
-                config.endpointStyle == AiEndpointStyle.RESPONSES ->
-                    OpenAiResponsesProvider().reviseSchedule(config, request, history, networkContext)
-                else -> OpenAiCompatibleChatProvider().reviseSchedule(config, request, history, networkContext)
-            }
-            val revisedDraft = applyAiSchedulePatch(draft, result.content)
-            AiScheduleImportResult(
-                output = draftToPayload(revisedDraft).toString(),
-                routeMessage = "已按要求修改课表。",
-                rawOutput = result.content,
-                reasoningOutput = result.reasoning
-            )
+            interaction?.onHttpPhase = onHttpPhase
+            com.xiaomanjun.sleepdownschedule.feature.agent.AgentImportRuntime.revise(
+                context, draft, instruction, history, settings, interaction, onReasoningUpdate, onCheckpoint)
         }
     }
 }
@@ -237,6 +279,8 @@ private fun AiScheduleInput.networkContext(
     screenshotCount = screenshotCount,
     onPhase = onHttpPhase,
     onReasoningUpdate = onReasoningUpdate,
+    assistantMemory = if (inputType != "REPAIR" && com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentPreferences.isMemoryEnabled(context))
+        com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentPreferences.memory(context) else "",
     processImportanceProvider = { currentAiProcessImportance(context) }
 )
 
@@ -250,7 +294,7 @@ private fun currentAiProcessImportance(context: Context): Int? = runCatching {
 suspend fun testAiProviderConnection(settings: AiImportSettings): Result<String> {
     return withContext(Dispatchers.IO) {
         runCatching {
-            require(settings.apiKey.isNotBlank()) { "请先配置 AI API Key" }
+            require(settings.hasCredentialConfiguration()) { "请先配置 AI API Key" }
             require(settings.profile.baseUrl.isNotBlank()) { "请先配置接口地址" }
             require(settings.profile.defaultModel.isNotBlank()) { "请先配置模型名称" }
             val config = settings.toProviderConfig().normalizedForRequest()
@@ -336,7 +380,7 @@ suspend fun diagnoseAiProviderNetwork(settings: AiImportSettings): Result<String
                 result.appendLine("HTTPS：失败，${it.message.orEmpty()}")
             }
 
-            if (settings.apiKey.isBlank()) {
+            if (!settings.hasCredentialConfiguration()) {
                 result.appendLine("请求测试：跳过，未配置 API Key")
             } else {
                 testAiProviderConnection(settings)

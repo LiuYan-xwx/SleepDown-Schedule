@@ -379,6 +379,7 @@ fun SettingsNavigationRow(
     selected: Boolean = false,
     leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     leadingIconTint: ComposeColor = MaterialTheme.colorScheme.primary,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val neutralSelection = MaterialTheme.colorScheme.onSurface
@@ -388,6 +389,7 @@ fun SettingsNavigationRow(
         MiuixArrowPreference(
             title = title,
             summary = subtitle,
+            enabled = enabled,
             startAction = {
                 leadingIcon?.let {
                     Icon(it, contentDescription = null, tint = iconTint,
@@ -433,7 +435,7 @@ fun SettingsNavigationRow(
                     }
                 )
             )
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .clickable(enabled = enabled, interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(start = 20.dp, end = if (leadingIcon != null) 28.dp else 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -700,6 +702,8 @@ private fun SettingsInlineTextField(
             enabled = enabled,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            visualTransformation = if (keyboardType == KeyboardType.Password) androidx.compose.ui.text.input.PasswordVisualTransformation()
+                else androidx.compose.ui.text.input.VisualTransformation.None,
             textStyle = textStyle,
             modifier = fieldModifier,
             decorationBox = decoration
@@ -732,6 +736,8 @@ private fun SettingsInlineTextField(
         enabled = enabled,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        visualTransformation = if (keyboardType == KeyboardType.Password) androidx.compose.ui.text.input.PasswordVisualTransformation()
+            else androidx.compose.ui.text.input.VisualTransformation.None,
         textStyle = textStyle,
         modifier = fieldModifier.onFocusChanged { focused = it.isFocused },
         decorationBox = decoration
@@ -1348,6 +1354,7 @@ fun SettingsInfoRow(title: String, body: String, badgeText: String? = null) {
 }
 
 private val changelogReleaseDates = mapOf(
+    "1.2.7_beta5" to "2026-10-10",
     "1.2.7_beta4" to "2026-10-08",
     "1.2.7_beta3" to "2026-10-06",
     "1.2.7_beta2" to "2026-10-02",

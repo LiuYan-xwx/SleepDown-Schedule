@@ -93,7 +93,8 @@ private data class AdjustmentDraft(
     val source: String,
     val isNew: Boolean,
     val originalDate: String? = null,
-    val label: String = ""
+    val label: String = "",
+    val allDayPlaceholder: Boolean = false
 )
 
 private enum class AdjustmentPickerPage { DETAILS, TARGET_DATE, SOURCE_DATE }
@@ -145,7 +146,8 @@ internal fun ScheduleAdjustmentsScreen(
     fun beginEdit(entry: ScheduleAdjustment) {
         draftVisible = true
         draft = AdjustmentDraft(entry.date, entry.sourceDate == null, entry.sourceDate.orEmpty(),
-            isNew = false, originalDate = entry.date, label = entry.label)
+            isNew = false, originalDate = entry.date, label = entry.label,
+            allDayPlaceholder = entry.allDayPlaceholder)
         draftError = null
     }
     fun beginNewAdjustment() {
@@ -157,6 +159,7 @@ internal fun ScheduleAdjustmentsScreen(
         val current = draft ?: return
         runCatching {
             val next = validEntry(current.date, if (current.rest) null else current.source, current.label)
+                .copy(allDayPlaceholder = current.rest && current.allDayPlaceholder)
             replaceScheduleAdjustment(entries, current.originalDate, next)
         }
             .onSuccess { next ->
@@ -319,7 +322,7 @@ internal fun ScheduleAdjustmentsScreen(
                             }
                         }
                     }
-                    GlassPreferenceCategory("自动匹配仅供参考，请按学校安排核对。采用后会替换所选日期的已有安排，其他日期保留。",
+                    GlassPreferenceCategory("自动匹配仅供参考，请按学校安排核对；采用后会替换所选日期的已有安排，其他日期保留",
                         modifier = Modifier.padding(start = 4.dp, top = 8.dp))
                     DialogLiquidButton(backdrop, "采用所选日期", ::applySelected,
                         role = DialogButtonRole.Confirm, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
@@ -343,7 +346,7 @@ internal fun ScheduleAdjustmentsScreen(
                         }
                     }
                 }
-                GlassPreferenceCategory("点按修改，左滑删除。修改原课程，也会同步更新对应的补课。", modifier = Modifier.padding(start = 4.dp, top = 8.dp))
+                GlassPreferenceCategory("点按修改，左滑删除；修改原课程，也会同步更新对应的补课", modifier = Modifier.padding(start = 4.dp, top = 8.dp))
             }
         }
         val density = LocalDensity.current
@@ -496,8 +499,8 @@ private fun AdjustmentEditorDialog(
                             height = SleepDownDesignTokens.CenteredDialog.ActionHeight,
                             onClick = { onDraftChange(draft.copy(rest = false)) })
                     }
-                    Text(if (view.rest) "当天暂停上课，保留原课程且不发送提醒。"
-                        else "选择要补哪一天的课，时间和课程内容随原课程同步。",
+                    Text(if (view.rest) "当天暂停上课，保留原课程且不发送提醒"
+                        else "选择要补哪一天的课，时间和课程内容随原课程同步",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 4.dp))
@@ -506,6 +509,12 @@ private fun AdjustmentEditorDialog(
                             title = "调休日期",
                             subtitle = "${formatScheduleDate(targetDate)}  ${weekdayText(targetDate)}",
                             onClick = { openDatePage(AdjustmentPickerPage.TARGET_DATE) })
+                        if (view.rest) {
+                            SettingsDivider()
+                            SettingsToggleRow("全天占位", "以全天假期卡替代停课灰卡，无课时也显示",
+                                draft.allDayPlaceholder, backdrop,
+                                onCheckedChange = { onDraftChange(draft.copy(allDayPlaceholder = it)) })
+                        }
                         if (!view.rest) {
                             SettingsDivider()
                             val sourceDate = parseScheduleDate(draft.source)

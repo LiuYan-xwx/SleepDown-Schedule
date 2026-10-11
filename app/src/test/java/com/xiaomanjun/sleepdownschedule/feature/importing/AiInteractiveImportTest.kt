@@ -59,6 +59,31 @@ class AiInteractiveImportTest {
 
     @After fun resetSession() = AiEduImportProgressSession.update(null)
 
+    @Test fun enabledMemorySurvivesProgressContinuationInBothProtocols() {
+        for (style in listOf(AiEndpointStyle.CHAT_COMPLETIONS, AiEndpointStyle.RESPONSES)) {
+            val requests = mutableListOf<JsonObject>()
+            requestScheduleImport(config(style), body(style), AiImportNetworkContext("TEXT", assistantMemory = "课程名称保留英文")) { request, _ ->
+                requests += request
+                if (requests.size == 1) response(style, "<import_progress>正在核对</import_progress>")
+                else response(style, "", ScheduleImportToolName to """{"courses":[]}""")
+            }
+            val key = if (style == AiEndpointStyle.RESPONSES) "input" else "messages"
+            requests.forEach { request ->
+                val contents = request[key]!!.jsonArray.map { it.jsonObject["content"]!!.jsonPrimitive.content }
+                val memory = contents.single { it.startsWith("{\"kind\":\"user_memory_context\"") }
+                assertEquals("课程名称保留英文", Json.parseToJsonElement(memory).jsonObject["content"]!!.jsonPrimitive.content)
+                assertTrue(contents.contains("synthetic schedule source"))
+            }
+        }
+    }
+
+    @Test fun formatRepairNeverReceivesAssistantMemory() {
+        requestScheduleImport(config(), body(AiEndpointStyle.RESPONSES), AiImportNetworkContext("REPAIR", assistantMemory = "私有偏好")) { request, _ ->
+            assertFalse(request.toString().contains("私有偏好"))
+            response(AiEndpointStyle.RESPONSES, "", ScheduleImportToolName to """{"courses":[]}""")
+        }
+    }
+
     @Test fun partialSummaryIsNotShownAndMarkedSummaryDoesNotCorruptFinalJson() {
         val partial = "<import_progress>已识别课程"
         assertEquals("", importProgressSummary(partial))
@@ -76,6 +101,7 @@ class AiInteractiveImportTest {
         assertEquals("已识别三门课程", stream.displayReasoning.toString())
         stream.consume("""{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"IMPORT_SCHEDULE","arguments":"{\"courses\":[]}"}}]}}]}""")
         assertEquals("已识别三门课程", stream.displayReasoning.toString())
+        stream.consume("""{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}""")
         assertEquals("{\"courses\":[]}", parseScheduleToolResult(stream.toCompletionJson())!!.content)
         stream.consume("""{"choices":[{"delta":{"reasoning_content":"正在核对课时"}}]}""")
         assertEquals("正在核对课时", stream.displayReasoning.toString())

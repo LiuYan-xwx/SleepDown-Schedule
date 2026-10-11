@@ -23,12 +23,28 @@ import java.net.URL
  */
 internal const val AiDefaultConnectTimeoutMs = 30_000
 internal const val AiDefaultReadTimeoutMs = 600_000
+internal const val AiStreamResponseLimitChars = 2 * 1024 * 1024
 
-internal fun HttpURLConnection.setAiAuthHeader(apiKey: String, authType: AiAuthType) {
+/** A hard failure keeps oversized/truncated JSON from being mistaken for a usable artifact. */
+internal class AiStreamResponseBudget {
+    private var receivedChars = 0L
+    fun record(payload: CharSequence) {
+        receivedChars += payload.length
+        if (receivedChars > AiStreamResponseLimitChars) throw AiServiceResponseException(
+            "AI 响应超过安全大小限制，未采用未完成的数据。请缩小导入范围后重试。", "")
+    }
+}
+
+internal fun HttpURLConnection.setAiAuthHeader(apiKey: String, authType: AiAuthType, model: String? = null) {
     when (authType) {
         AiAuthType.ApiKeyBearer,
         AiAuthType.OpenAIProjectKey -> setRequestProperty("Authorization", "Bearer $apiKey")
         AiAuthType.CustomHeader -> setRequestProperty("api-key", apiKey)
+        AiAuthType.ChatGptOAuth -> {
+            requireChatGptInferenceEndpoint(url.toString())
+            val selectedModel = requireNotNull(model) { "ChatGPT 请求缺少已授权模型" }
+            setRequestProperty("Authorization", "Bearer ${com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager.requireAccessToken(selectedModel)}")
+        }
     }
 }
 
@@ -44,42 +60,123 @@ internal fun openAiPostConnection(
     accept: String? = "application/json",
     method: String = "POST",
     connectTimeoutMs: Int = AiDefaultConnectTimeoutMs,
-    readTimeoutMs: Int = AiDefaultReadTimeoutMs
-): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
+    readTimeoutMs: Int = AiDefaultReadTimeoutMs,
+    model: String? = null
+): HttpURLConnection {
+    val generation = ChatGptInferenceSessions.currentGeneration()
+    return (URL(url).openConnection() as HttpURLConnection).apply {
     requestMethod = method
     connectTimeout = connectTimeoutMs
     // Streaming providers may legitimately pause while reasoning. This is an inactivity timeout,
     // not a total request deadline; keep it long enough for those pauses.
     readTimeout = readTimeoutMs
     doOutput = true
-    setAiAuthHeader(apiKey, authType)
+    if (authType == AiAuthType.ChatGptOAuth) {
+        requireChatGptInferenceEndpoint(url.toString())
+        // Never redirect an OAuth bearer credential to another endpoint or origin.
+        instanceFollowRedirects = false
+    }
+    setAiAuthHeader(apiKey, authType, model)
     setRequestProperty("Content-Type", contentType)
     accept?.let { setRequestProperty("Accept", it) }
+    if (authType == AiAuthType.ChatGptOAuth) ChatGptInferenceSessions.register(this, generation)
+    }
 }
 
 /** Reads a non-streaming body, converting any non-2xx status into a provider-facing error. */
 internal fun HttpURLConnection.readAiBodyOrThrow(providerId: String? = null): String {
     val status = responseCode
     if (status !in 200..299) {
-        val text = errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-        throw AiServiceResponseException(formatAiRequestError(status, text, providerId), text)
+        val text = errorStream?.bufferedReader()?.use { it.readAiBoundedText() }.orEmpty()
+        throw AiServiceResponseException(formatAiRequestError(status, text, providerId), text, httpStatus = status)
     }
-    return inputStream.bufferedReader().use { it.readText() }
+    return inputStream.bufferedReader().use { it.readAiBoundedText() }
 }
 
 /**
- * Consumes an SSE body, handing each decoded `data:` payload to [onPayload]. Blank payloads and
- * `[DONE]` are skipped; JSON decoding is left to the caller because the two pipelines disagree on
- * how to treat malformed events.
+ * Consumes framed SSE events, joining multiple data lines and stopping at `[DONE]` even if the
+ * server leaves its socket open. Comments and event metadata never become model output.
  */
-internal fun HttpURLConnection.forEachSseDataLine(onPayload: (String) -> Unit) {
-    BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).useLines { lines ->
-        lines.forEach { line ->
-            if (!line.startsWith("data:")) return@forEach
-            val payload = line.removePrefix("data:").trim()
-            if (payload.isBlank() || payload == "[DONE]") return@forEach
+internal fun HttpURLConnection.forEachSseDataLine(
+    checkActive: () -> Unit = {},
+    onPayload: (String) -> Unit
+) {
+    BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).use {
+        it.forEachAiSsePayload(checkActive, onPayload)
+    }
+}
+
+internal fun BufferedReader.forEachAiSsePayload(
+    checkActive: () -> Unit = {},
+    onPayload: (String) -> Unit
+) {
+    val data = StringBuilder()
+    val budget = AiStreamResponseBudget()
+    fun dispatch(): Boolean {
+        val payload = data.toString().trim()
+        data.clear()
+        if (payload == "[DONE]") return false
+        if (payload.isNotEmpty()) {
+            checkActive()
+            budget.record(payload)
             onPayload(payload)
         }
+        return true
+    }
+    var firstLine = true
+    while (true) {
+        checkActive()
+        val raw = readBoundedAiSseLine() ?: break
+        val line = if (firstLine) raw.removePrefix("\uFEFF") else raw
+        firstLine = false
+        if (line.isEmpty()) {
+            if (!dispatch()) return
+        } else if (line == "data" || line.startsWith("data:")) {
+            val value = line.removePrefix("data").removePrefix(":").removePrefix(" ")
+            // Several compatible APIs omit blank separators between complete JSON events.
+            if (data.isNotEmpty() && (data.toString().trim() == "[DONE]" || parseSseJsonObject(data.toString()) != null)) {
+                if (!dispatch()) return
+            }
+            if (data.isNotEmpty()) data.append('\n')
+            if (data.length.toLong() + value.length > AiStreamResponseLimitChars) {
+                throw AiServiceResponseException("AI 流式事件超过安全大小限制，请缩小导入范围后重试。", "")
+            }
+            data.append(value)
+            if (data.toString().trim() == "[DONE]") return
+        }
+    }
+    dispatch()
+}
+
+/** BufferedReader.readLine itself has no bound; cap before a hostile single line can grow freely. */
+private fun BufferedReader.readBoundedAiSseLine(): String? {
+    val line = StringBuilder()
+    while (true) {
+        val next = read()
+        if (next == -1) return line.toString().takeIf { line.isNotEmpty() }
+        if (next == '\n'.code) return line.toString()
+        if (next == '\r'.code) {
+            mark(1)
+            if (read() != '\n'.code) reset()
+            return line.toString()
+        }
+        if (line.length >= AiStreamResponseLimitChars) {
+            throw AiServiceResponseException("AI 流式事件超过安全大小限制，请缩小导入范围后重试。", "")
+        }
+        line.append(next.toChar())
+    }
+}
+
+internal fun BufferedReader.readAiBoundedText(): String {
+    val result = StringBuilder()
+    val buffer = CharArray(8_192)
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) return result.toString()
+        if (result.length.toLong() + count > AiStreamResponseLimitChars) {
+            throw AiServiceResponseException("AI 响应超过安全大小限制，请缩小导入范围后重试。", "")
+        }
+        result.append(buffer, 0, count)
     }
 }
 
@@ -124,10 +221,12 @@ internal fun formatAiNetworkError(url: String, throwable: Throwable): String {
     return "$hint 原始错误：$message"
 }
 
-internal fun formatAiRequestError(status: Int, text: String, providerId: String? = null): String {
-    if (providerId == AiProviderPresets.dailyFree.id && isManagedFreeLimitError(status, text)) {
-        return "今日免费 AI 共享额度已用完，请明天再试，或在 AI 设置中配置自己的 AI 服务。"
-    }
+internal fun formatAiRequestError(status: Int, text: String, providerId: String? = null, requestId: String? = null): String {
+    if (providerId == AiProviderPresets.chatGpt.id) return chatGptInferenceError(status, text, requestId)
+    // Managed credentials still call the provider directly. An HTTP failure cannot tell us
+    // that SleepDown's daily allowance is exhausted, nor when the provider will recover.
+    // Preserve the status and response for diagnosis just as with a user's own credentials.
+    val service = if (providerId == AiProviderPresets.dailyFree.id) "免费 AI" else "AI"
     val compact = sanitizeAiOutputForDisplay(text).replace(Regex("\\s+"), " ").take(240)
     val hint = if (
         text.contains("404 page not found", ignoreCase = true) ||
@@ -138,23 +237,8 @@ internal fun formatAiRequestError(status: Int, text: String, providerId: String?
         null
     }
     return buildString {
-        append("AI 请求失败 ($status)")
+        append("$service 请求失败 ($status)")
         hint?.let { append("：").append(it) }
         if (compact.isNotBlank()) append(" 服务返回：").append(compact)
     }
-}
-
-private fun isManagedFreeLimitError(status: Int, text: String): Boolean {
-    if (status == 429) return true
-    val normalized = text.lowercase()
-    return listOf(
-        "模型超限",
-        "额度已用完",
-        "额度不足",
-        "quota",
-        "rate_limit",
-        "rate limit",
-        "limit exceeded",
-        "too many requests"
-    ).any(normalized::contains)
 }

@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.animation.core.LinearEasing
 
 import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.model.effectiveWeekCardTextAlignment
 import com.xiaomanjun.sleepdownschedule.app.state.*
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
@@ -452,7 +453,7 @@ internal fun HomeStartMode.toHomeMode(): HomeMode = when (this) {
     HomeStartMode.WEEK -> HomeMode.Week
 }
 enum class SettingsSection { Schedule, Notifications }
-enum class SettingsPage { Root, General, LiquidGlass, Widgets, AiImport, DayAgent, Schedule, PeriodSchemes, AutoRefreshSchedule, Notifications, ScheduleManager, BackupRestore, BackupPreview, About, Changelog, Donate, PrivacyPolicy }
+enum class SettingsPage { Root, General, LiquidGlass, Widgets, AiImport, DayAgent, Schedule, PeriodSchemes, AutoRefreshSchedule, Notifications, ScheduleManager, BackupRestore, WebDav, BackupPreview, About, Changelog, Donate, PrivacyPolicy }
 
 /** Matches the navigation motion used by the bundled Miuix system-style navigator. */
 private class MiuixSettingsNavigationEasing(
@@ -525,6 +526,7 @@ private fun SettingsPage.title(): String = when (this) {
     SettingsPage.Notifications -> "通知设置"
     SettingsPage.ScheduleManager -> "课表设置"
     SettingsPage.BackupRestore -> "备份与恢复"
+    SettingsPage.WebDav -> "WebDAV 备份"
     SettingsPage.BackupPreview -> "恢复预览"
     SettingsPage.About -> "关于应用"
     SettingsPage.Changelog -> "关于应用"
@@ -808,10 +810,14 @@ fun CourseScheduleAppUi(
     var homeMode by remember(state.loaded, state.config.defaultHomeMode) {
         mutableStateOf(state.config.defaultHomeMode.toHomeMode())
     }
-    val rootPageMotion = rememberHomeSwitchMotion(screen is Screen.Config, "home-settings")
+    var dayRenderedCardCount by remember(state.config.id) { mutableIntStateOf(0) }
+    var weekRenderedCardCount by remember(state.config.id) { mutableIntStateOf(0) }
+    val rootPageMotion = rememberHomeSwitchMotion(screen is Screen.Config, "home-settings",
+        renderedCardCount = { if (homeMode == HomeMode.Week) weekRenderedCardCount else dayRenderedCardCount })
     val homeModeMotion = key(state.loaded) {
         rememberHomeSwitchMotion(homeMode == HomeMode.Week, "day-week",
-            animate = !rootPageMotion.landscape || !rootPageMotion.moving)
+            animate = !rootPageMotion.landscape || !rootPageMotion.moving,
+            renderedCardCount = { maxOf(dayRenderedCardCount, weekRenderedCardCount) })
     }
     val rootPageStateHolder = rememberSaveableStateHolder()
     var homeDialog by remember { mutableStateOf<HomeDialog?>(null) }
@@ -845,8 +851,9 @@ fun CourseScheduleAppUi(
     val courseEditorOverlayPhase = courseEditorMotionState.phase
     fun openCourseEditor(course: CourseEntity, targetWeek: Int?, sourceBounds: Rect?, copyDraft: CourseEntity? = null, contextMessage: String? = null, sourceAdjustmentLabel: String? = null) {
         if (courseEditorRequest != null) return
-        val sourceGrid = targetWeek?.let(courseEditorFlightRegistry::grid)
         val clickedSource = courseEditorFlightRegistry.consumeSource(sourceBounds)
+        val sourceIsDayCard = clickedSource != null || (homeMode != HomeMode.Week && sourceBounds != null)
+        val sourceGrid = if (sourceIsDayCard) null else targetWeek?.let(courseEditorFlightRegistry::grid)
         courseEditorFlightRegistry.frozen = true
         courseEditorRequest = CourseEditorOverlayRequest(
             course = course,
@@ -854,7 +861,7 @@ fun CourseScheduleAppUi(
             sourceBoundsInRoot = sourceBounds,
             sourceClipBoundsInRoot = clickedSource?.visibleBounds,
             sourceDayAppearance = clickedSource?.dayAppearance,
-            sourceIsDayCard = homeMode != HomeMode.Week && sourceBounds != null,
+            sourceIsDayCard = sourceIsDayCard,
             copyDraft = copyDraft,
             sourceGrid = sourceGrid,
             contextMessage = contextMessage,
@@ -1455,7 +1462,8 @@ fun CourseScheduleAppUi(
         automaticUpdateDialog,
         courseEditorRequest,
         remoteConfigState.bootstrap?.ai?.configVersion,
-        remoteConfigState.bootstrap?.ai?.enabled
+        remoteConfigState.bootstrap?.ai?.enabled,
+        remoteConfigState.bootstrap?.aiConfigs
     ) {
         if (
             state.loaded &&
@@ -2069,7 +2077,8 @@ fun CourseScheduleAppUi(
             currentWeek = resolvedWeek,
             autoCurrentWeek = config.autoCurrentWeek,
             hideEmptyWeekends = config.hideEmptyWeekends,
-            termStartDate = config.termStartDate.orEmpty()
+            termStartDate = config.termStartDate.orEmpty(),
+            showNonCurrentWeekCourses = config.showNonCurrentWeekCourses
         )
     }
 
@@ -2262,12 +2271,16 @@ fun CourseScheduleAppUi(
         hasWallpaper = visualState.config.hasAnyWallpaper()
     )
     val sharedCourseRadiusPx = with(LocalDensity.current) { (sharedCourseFrame.blur ?: 0.dp).toPx() }
-    val sharedCourseBackdrop = remember(courseWallpaperBackdrop, sharedCourseRadiusPx, sharedCourseFrame.useVibrancy) {
+    val courseMaterialsEnabled = AppMaterialPreferences.policy.courseSamples(
+        visualState.config.courseCardGlassEnabled, visualState.config.courseCardGaussianBlurEnabled,
+        visualState.config.hasAnyWallpaper())
+    val sharedCourseBackdrop = if (courseMaterialsEnabled && visualState.config.courseCardGlassEnabled)
+        remember(courseWallpaperBackdrop, sharedCourseRadiusPx, sharedCourseFrame.useVibrancy) {
         com.kyant.backdrop.backdrops.SharedBlurBackdrop(courseWallpaperBackdrop, sharedCourseRadiusPx, sharedCourseFrame.useVibrancy)
-    }
+    } else null
     // Retained timetable cards must retain their material source as well. Removing this on
     // Settings used to replace every card's sampler and allocate it again on the return frame.
-    val sharedCourseBackdropExpected = visualState.config.courseCardGlassEnabled && visualState.config.hasAnyWallpaper() &&
+    val sharedCourseBackdropExpected = sharedCourseBackdrop != null && visualState.config.courseCardGlassEnabled && visualState.config.hasAnyWallpaper() &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val useSharedCourseBackdrop = sharedCourseBackdropExpected && wallpaperImages.source != null
     lateinit var handleHomeAgentAction: AgentActionHandler
@@ -2363,10 +2376,25 @@ fun CourseScheduleAppUi(
         }
         }
     }
+    // Local function references capture the current host inputs. Keep the provided callback
+    // itself stable: every course card consumes it, including ordinary cards, and a tab change
+    // must not invalidate that whole subtree just to keep its eventual click up to date.
+    val currentAdjustedCourseEditor = rememberUpdatedState<(Long, LocalDate, Rect?) -> Unit>(::openAdjustedCourseEditor)
+    val adjustedCourseEditor = remember {
+        { courseId: Long, date: LocalDate, bounds: Rect? ->
+            currentAdjustedCourseEditor.value(courseId, date, bounds)
+        }
+    }
+    val currentHomeCourseClick = rememberUpdatedState<(CourseEntity, Int, Rect?) -> Unit>({ course, week, bounds ->
+        openCourseEditor(course, week, bounds)
+    })
+    val homeCourseClick = remember {
+        { course: CourseEntity, week: Int, bounds: Rect? -> currentHomeCourseClick.value(course, week, bounds) }
+    }
     CompositionLocalProvider(
         LocalHomeAssistant provides homeAssistant,
         LocalDayAgentCountdownCinematic provides dayAgentCountdownCinematic,
-        LocalAdjustedCourseEditor provides ::openAdjustedCourseEditor,
+        LocalAdjustedCourseEditor provides adjustedCourseEditor,
         LocalCourseShortcuts provides courseShortcuts,
         LocalCourseCopy provides courseCopy,
         LocalCourseRemoval provides courseRemoval,
@@ -2672,8 +2700,8 @@ fun CourseScheduleAppUi(
             LocalHomeAdaptiveMetrics provides sidebarContentMetrics,
             LocalHomePagerStartOverflow provides homeSidebarState.targetContentInset,
             LocalSettingsSharedGradient provides tabletAboutGradient,
-            LocalHomeBackgroundFrozen provides homeBackgroundFreezeActive,
-            LocalHomeTextContrastFrozen provides (rootPageMotion.moving || homeModeMotion.moving || homeSidebarState.moving),
+            LocalHomeBackgroundFrozen provides rememberUpdatedState(homeBackgroundFreezeActive),
+            LocalHomeTextContrastFrozen provides rememberUpdatedState(rootPageMotion.moving || homeModeMotion.moving || homeSidebarState.moving),
             com.xiaomanjun.sleepdownschedule.glass.LocalGlassCoordinatesFrozen provides
                 freezeHomeGlassCoordinates,
             com.xiaomanjun.sleepdownschedule.glass.LocalGlassSampleRecordKey provides homeGlassSampleRecordKey
@@ -2684,7 +2712,7 @@ fun CourseScheduleAppUi(
             topBar = {
                 HomeSwitchPane(rootPageMotion, secondary = false,
                     modifier = Modifier.fillMaxWidth().homeSidebarContentInset(homeSidebarState),
-                    pageClip = HomeSwitchClip.TopBar) {
+                    pageClip = HomeSwitchClip.TopBar, retainContent = true) {
                 TopBarEntranceContainer(
                     phase = startupPhase,
                     modifier = Modifier
@@ -2696,7 +2724,9 @@ fun CourseScheduleAppUi(
                             )
                         )
                 ) {
-                    if (rootPageMotion.retains(false)) {
+                    // The pane suppresses hidden drawing and input. Keep the chrome's text
+                    // layouts and glass nodes alive, just like the retained course pages.
+                    run {
                         AnimatedVisibility(
                             visible = homeContentUnderTopBar,
                             modifier = Modifier
@@ -2761,10 +2791,25 @@ fun CourseScheduleAppUi(
                             onBackHome = { screen = Screen.Home }
                         )
                     }
-                    if (homeModeMotion.retains(true) && weekViewStyle == WeekViewStyle.BOUNDLESS) {
+                    if (weekViewStyle == WeekViewStyle.BOUNDLESS) {
                         // Boundless week header lives on the top bar layer (above the gradient
                         // blur) so weekday labels are never covered; geometry mirrors the course
                         // grid (rowHeaderWidth slot + equal columns + weekGridEndPadding).
+                        HomeSwitchPane(
+                            motion = homeModeMotion,
+                            secondary = true,
+                            retainContent = true,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .zIndex(12f)
+                                .fillMaxWidth()
+                                .padding(top = homeAdaptiveMetrics.safeTop + 66.dp)
+                                .padding(
+                                    start = if (homeAdaptiveMetrics.isLargeScreen) homeAdaptiveMetrics.tabletContentMargin else 0.dp,
+                                    end = if (homeAdaptiveMetrics.isLargeScreen) homeAdaptiveMetrics.tabletContentMargin else 0.dp
+                                )
+                                .homeCountdownShockwave(0.70f)
+                        ) {
                         BoundlessWeekdayHeaderRow(
                             displayWeek = homeWeekHeaderPreview.value ?: homeDisplayWeek,
                             courses = visualState.courses,
@@ -2778,18 +2823,9 @@ fun CourseScheduleAppUi(
                             } else {
                                 BoundlessWeekGridEndPadding
                             },
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .zIndex(12f)
-                                .fillMaxWidth()
-                                .padding(top = homeAdaptiveMetrics.safeTop + 66.dp)
-                                .padding(
-                                    start = if (homeAdaptiveMetrics.isLargeScreen) homeAdaptiveMetrics.tabletContentMargin else 0.dp,
-                                    end = if (homeAdaptiveMetrics.isLargeScreen) homeAdaptiveMetrics.tabletContentMargin else 0.dp
-                                )
-                                .homeSwitchLayer(homeModeMotion, secondary = true)
-                                .homeCountdownShockwave(0.70f)
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        }
                     }
                 }
                 }
@@ -2818,7 +2854,7 @@ fun CourseScheduleAppUi(
                         Box(Modifier.fillMaxSize()
                             .drawWithContent { if (rootPageMotion.retains(false)) drawContent() }
                             .homeSwitchLayer(rootPageMotion, secondary = false, pageClip = HomeSwitchClip.Page)
-                            .glassBackdropProducer(courseWallpaperBackdrop, recordKey = {
+                            .glassBackdropProducer(courseWallpaperBackdrop, enabled = courseMaterialsEnabled, recordKey = {
                                 homeWallpaperRecordKey.value?.let { imageKey ->
                                     imageKey to (personalizationPreviewState.wallpaperBrightness
                                         ?: visualState.config.wallpaperBrightness)
@@ -2876,7 +2912,7 @@ fun CourseScheduleAppUi(
                 if (useSharedCourseBackdrop) {
                     Box(Modifier.fillMaxSize()
                         .drawWithContent { if (rootPageMotion.retains(false)) drawContent() }
-                        .then(sharedCourseBackdrop.preRenderModifier {
+                        .then(requireNotNull(sharedCourseBackdrop).preRenderModifier {
                         // This source is inside the page transform: neither translation nor
                         // page corners change its pixels. Each card still samples its live offset.
                         homeWallpaperRecordKey.value?.let { imageKey ->
@@ -2901,6 +2937,10 @@ fun CourseScheduleAppUi(
                                      personalizationPreviewState = personalizationPreviewState,
                                      mode = homeMode,
                                      modeMotion = homeModeMotion,
+                                     onRenderedCardCountChanged = { mode, count ->
+                                         if (mode == HomeMode.Week) weekRenderedCardCount = count
+                                         else dayRenderedCardCount = count
+                                     },
                                      dayViewMode = dayViewMode,
                                      weekViewStyle = weekViewStyle,
                                      adaptiveMetrics = sidebarContentMetrics,
@@ -2939,9 +2979,7 @@ fun CourseScheduleAppUi(
                                         }
                                     },
                                     onAgentDismissed = {},
-                                    onCourseClick = { course, week, sourceBounds ->
-                                        openCourseEditor(course, week, sourceBounds)
-                                    },
+                                    onCourseClick = homeCourseClick,
                                     onAddCourse = viewModel::addCourse,
                                     onAgentAction = handleHomeAgentAction,
                                     onUpdateCourseSingleWeek = viewModel::updateCourseSingleWeek,
@@ -3895,7 +3933,8 @@ fun CourseScheduleAppUi(
                     currentWeek = manualWeek,
                     termStartDate = draft.termStartDate.ifBlank { null },
                     autoCurrentWeek = draft.autoCurrentWeek,
-                    hideEmptyWeekends = draft.hideEmptyWeekends
+                    hideEmptyWeekends = draft.hideEmptyWeekends,
+                    showNonCurrentWeekCourses = draft.showNonCurrentWeekCourses
                 )
                 val periods = latest.allPeriods.filter { it.scheduleId == draft.scheduleId }
                     .ifEmpty { defaultPeriods(draft.scheduleId) }
@@ -4102,6 +4141,14 @@ fun CourseScheduleAppUi(
             onPhaseChange = {}
         )
 
+    }
+
+    com.xiaomanjun.sleepdownschedule.feature.backup.webdav.WebDavRestorePrompt(
+        state.config, chromeBackdrop,
+        canShow = !showManagedFreeAiOffer && homeDialog == null && courseEditorRequest == null && homeAnchoredOverlayRequest == null
+    ) {
+        context.startActivity(Intent(context, SettingsDetailActivity::class.java)
+            .putExtra(SettingsDetailPageExtra, SettingsPage.WebDav.name))
     }
 
     if (showManagedFreeAiOffer) {
@@ -5139,6 +5186,7 @@ internal fun AppTopBar(
                         SettingsPage.Notifications -> "通知设置"
                         SettingsPage.ScheduleManager -> "课表设置"
                         SettingsPage.BackupRestore -> "备份与恢复"
+                        SettingsPage.WebDav -> "WebDAV 备份"
                         SettingsPage.BackupPreview -> "恢复预览"
                         SettingsPage.About -> "关于应用"
                         SettingsPage.Changelog -> "关于应用"
@@ -5817,7 +5865,8 @@ internal fun mergePersonalizationCandidate(
     )
     PersonalizeWeekLocationChange -> current.copy(weekCardShowLocation = candidate.weekCardShowLocation)
     PersonalizeWeekTeacherChange -> current.copy(weekCardShowTeacher = candidate.weekCardShowTeacher)
-    PersonalizeWeekLayoutChange -> current.copy(weekCardContentLayout = candidate.weekCardContentLayout)
+    PersonalizeWeekLayoutChange -> current.copy(
+        weekCardContentLayout = candidate.weekCardContentLayout, weekCardTextAlignment = candidate.weekCardTextAlignment)
     PersonalizeCardColorChange -> current.copy(
         cardColorArgb = candidate.cardColorArgb,
         courseCardColorMode = candidate.courseCardColorMode,
@@ -6840,9 +6889,11 @@ fun PersonalizePanel(
                         )
                     }
                     val textLayouts = listOf(
-                        WeekCardContentLayout.CURRENT to "默认",
-                        WeekCardContentLayout.CENTERED to "全部居中",
-                        WeekCardContentLayout.TOP_DOWN to "从上到下铺满"
+                        WeekCardContentLayout.CURRENT to WeekCardTextAlignment.CENTER,
+                        WeekCardContentLayout.TOP to WeekCardTextAlignment.START,
+                        WeekCardContentLayout.TOP to WeekCardTextAlignment.CENTER,
+                        WeekCardContentLayout.MIDDLE to WeekCardTextAlignment.START,
+                        WeekCardContentLayout.MIDDLE to WeekCardTextAlignment.CENTER
                     )
                     val rowTextColor = LocalContentColor.current
                     val rowTextStyle = MaterialTheme.typography.labelLarge
@@ -6852,9 +6903,12 @@ fun PersonalizePanel(
                         onSurfaceVariantActions = rowTextColor.copy(alpha = 0.72f)
                     )) {
                         SleepDownLiquidDropdownPreference(
-                            items = textLayouts.map { it.second },
-                            selectedIndex = textLayouts.indexOfFirst { it.first == state.config.weekCardContentLayout },
-                            title = "文字排布",
+                            items = listOf("默认", "顶部居左", "顶部居中", "中部居左", "中部居中"),
+                            selectedIndex = if (state.config.weekCardContentLayout == WeekCardContentLayout.CURRENT) 0
+                                else 1 + (if (state.config.weekCardContentLayout in listOf(
+                                WeekCardContentLayout.MIDDLE, WeekCardContentLayout.CENTERED)) 2 else 0) +
+                                (if (state.config.effectiveWeekCardTextAlignment() == WeekCardTextAlignment.CENTER) 1 else 0),
+                            title = "内容对齐",
                             modifier = Modifier.rowEntrance(8).fillMaxWidth()
                                 .heightIn(max = rowMaxHeight)
                                 .personalizePreviewVisibility(previewSliderKey, previewProgress),
@@ -6865,9 +6919,10 @@ fun PersonalizePanel(
                             backdrop = backdrop,
                             config = state.config,
                             onSelectedIndexChange = { index ->
-                                textLayouts.getOrNull(index)?.let { (layout, _) ->
+                                textLayouts.getOrNull(index)?.let { (layout, alignment) ->
                                     onUpdateConfig(PersonalizeWeekLayoutChange,
-                                        state.config.copy(weekCardContentLayout = layout))
+                                        state.config.copy(weekCardContentLayout = layout,
+                                            weekCardTextAlignment = alignment))
                                 }
                             }
                         )
@@ -6949,7 +7004,8 @@ fun PersonalizePanel(
                     },
                     onOpenPalette = { openCourseColorDialog(CourseCardColorMode.COLORFUL) }
                 )
-                val glassLocked = !state.config.hasAnyWallpaper()
+                val superPerformance = AppMaterialPreferences.isSuperPerformance
+                val glassLocked = !state.config.hasAnyWallpaper() || superPerformance
                 val minimumCardAlpha = if (glassLocked) FlatCourseCardMinimumAlpha else 0f
                 val alphaLabel = when {
                     !glassLocked &&
@@ -6958,7 +7014,7 @@ fun PersonalizePanel(
                     !glassLocked && state.config.courseCardGlassEnabled -> "课程卡片着色强度"
                     else -> "课程卡片不透明度"
                 }
-                PersonalizeValueSlider(
+                if (!superPerformance) PersonalizeValueSlider(
                     sliderKey = PersonalizeCardAlphaSlider,
                     modifier = Modifier.rowEntrance(9 + weekContentRows),
                     value = state.config.cardAlpha.coerceIn(minimumCardAlpha, 1f),
@@ -6986,8 +7042,8 @@ fun PersonalizePanel(
                     }
                 )
                 if (
-                    (state.config.courseCardGlassEnabled || state.config.courseCardGaussianBlurEnabled) &&
-                    !glassLocked
+                    superPerformance || ((state.config.courseCardGlassEnabled || state.config.courseCardGaussianBlurEnabled) &&
+                    !glassLocked)
                 ) {
                     val maxCourseCardBlur = courseCardBlurMaximum(state.config.courseCardGlassEnabled)
                     PersonalizeValueSlider(
@@ -6997,7 +7053,7 @@ fun PersonalizePanel(
                             maxCourseCardBlur * 100f,
                         valueRange = 0f..100f,
                         backdrop = backdrop,
-                        label = { "课程卡片模糊 ${it.toInt()}%" },
+                        label = { if (superPerformance) "课程卡片不透明度 ${(AppMaterialPreferences.policy.opacity(it, 100f) * 100).toInt()}%" else "课程卡片模糊 ${it.toInt()}%" },
                         onCommit = {
                             onUpdateConfig(
                                 PersonalizeCardBlurSlider,
@@ -7075,7 +7131,8 @@ fun PersonalizePanel(
                         }
                     )
                 }
-                if (state.config.courseCardGlassEnabled && !glassLocked) {
+                if (state.config.courseCardGlassEnabled && !glassLocked &&
+                    !com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isPerformance) {
                     PersonalizeValueSlider(
                         sliderKey = PersonalizeCardRefractionSlider,
                         modifier = Modifier.rowEntrance(13 + weekContentRows),
@@ -7133,7 +7190,8 @@ fun PersonalizePanel(
                 }
                 if (glassLocked) {
                     Text(
-                        "设置壁纸以启用课程卡片液态玻璃效果",
+                        if (superPerformance) "超级性能模式下不可用：液态玻璃、折射、轮廓光与高斯模糊。退出后恢复原参数。"
+                        else "设置壁纸以启用课程卡片液态玻璃效果",
                         style = MaterialTheme.typography.bodySmall,
                         color = personalizePanelForegroundColor(state.config).copy(alpha = 0.60f),
                         modifier = Modifier
@@ -7539,6 +7597,12 @@ open class SettingsDetailActivityHost : ComponentActivity() {
                         SettingsPage.BackupRestore -> BackupRestoreSettingsScreen(
                             state = state,
                             backdrop = backdrop,
+                            onOpenWebDav = {
+                                ActivityTransitionCoordinator.openImmediate(this@SettingsDetailActivityHost,
+                                    TransitionRouteId.SettingsToSettingsDetail,
+                                    Intent(this@SettingsDetailActivityHost, SettingsDetailActivity::class.java)
+                                        .putExtra(SettingsDetailPageExtra, SettingsPage.WebDav.name))
+                            },
                             onOpenPreview = { source ->
                                 ActivityTransitionCoordinator.openImmediate(
                                     this@SettingsDetailActivityHost,
@@ -7551,6 +7615,14 @@ open class SettingsDetailActivityHost : ComponentActivity() {
                                 )
                             }
                         )
+                        SettingsPage.WebDav -> com.xiaomanjun.sleepdownschedule.feature.backup.webdav.WebDavSettingsScreen(state, backdrop) { source ->
+                            ActivityTransitionCoordinator.openImmediate(this@SettingsDetailActivityHost,
+                                TransitionRouteId.SettingsToSettingsDetail,
+                                Intent(this@SettingsDetailActivityHost, SettingsDetailActivity::class.java)
+                                    .setData(source).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    .putExtra(SettingsDetailPageExtra, SettingsPage.BackupPreview.name)
+                                    .putExtra(BackupPreviewUriExtra, source.toString()))
+                        }
                         SettingsPage.BackupPreview -> if (backupPreviewSource != null) {
                             BackupRestorePreviewScreen(state, backdrop, backupPreviewSource)
                         } else {
@@ -8087,6 +8159,7 @@ fun LiquidControlToggle(
             onSelect = { if (enabled) onCheckedChange(it) },
             backdrop = backdrop,
             compact = compact,
+            enabled = enabled,
             modifier = modifier.graphicsLayer { this.alpha = alpha }
         )
     } else {
@@ -8516,8 +8589,11 @@ private fun SettingsPageContent(
         SettingsPage.BackupRestore -> BackupRestoreSettingsScreen(
             state = pageState,
             backdrop = backdrop,
-            onOpenPreview = onOpenBackupPreview
+            onOpenPreview = onOpenBackupPreview,
+            onOpenWebDav = { onPageChange(SettingsPage.WebDav) }
         )
+        SettingsPage.WebDav -> com.xiaomanjun.sleepdownschedule.feature.backup.webdav.WebDavSettingsScreen(
+            pageState, backdrop, onOpenBackupPreview)
         SettingsPage.BackupPreview -> if (backupPreviewUri != null) {
             BackupRestorePreviewScreen(pageState, backdrop, backupPreviewUri)
         } else {
@@ -9780,6 +9856,27 @@ fun ChangelogSettingsScreen(
                 // One continuous panel. Canvas clipping avoids a texture as tall as all expanded
                 // versions; each details animation still owns only its own small graphics layer.
                 AboutGlassPanel(darkTheme, Modifier.fillMaxWidth(), longContent = true) {
+            changelogItem(
+                    "1.2.7_beta5",
+                    "AI 导入接入课程助手，后续可按指定课程、日期或周次细改完整草稿；仅修改本周时保留其他周的安排，所有修改仍需预览确认。\n" +
+                    "导入会话支持 Markdown、逐节课程卡片、中途停止和补充要求；历史轮次直接展开，进入时滚到最新内容，后续交付物持续保留。\n" +
+                    "导入读取已启用的助手记忆，提示助手先核对原文、谨慎调整并保留无关内容；修复新任务通知打开旧进度页，以及取消确认后按钮失效的问题。\n" +
+                    "每日免费 AI 支持按云端下发顺序直接连接多个供应商和模型，不可用时自动切换；修正错误被统一显示为额度已用完的问题。\n" +
+                    "教务导入点击后立即显示加载并防止重复点击，脚本每次隔离执行，统一显示执行错误并补齐桥接及网络超时；重叠课程保留原始时间，提示冲突并按开始时间优先展示。\n" +
+                    "导入课程默认采用彩色文字与轮廓光，其余数值保持默认；修复课程管理为单门课程添加安排时的闪退。\n" +
+                    "新增“显示非本周课程”，以当前浏览周为准，灰色卡片避让本周课程及其他非本周卡片；节假日调课可设置全天占位，无课假日也能显示，实际补课正常呈现。\n" +
+                    "课程卡片内容布局支持默认、顶部居左、顶部居中、中部居左、中部居中五项，默认沿用原来的地点在上、课名居中、教师在下的布局，并在多课表自定义中增加非本周课程入口。\n" +
+                    "备份与恢复新增独立 WebDAV 分类，支持页面内登录、胶囊输入框和密码显示切换；连接后原地叠化进入管理页，可手动上传、浏览远端备份及下载预览后确认恢复。\n" +
+                    "WebDAV 可选自动备份，频率通过菜单选择；发现更新的远端备份后提示，确认才恢复。复用原 .sleepdown 备份范围，连接凭据不进入普通备份。\n" +
+                    "通用设置新增质感、性能、超级性能三档材质，保留原手动参数；超级性能关闭密集控件的液态玻璃和光感效果，保留全屏场景模糊，退出后恢复原参数。\n" +
+                    "超级性能统一普通控件和 Popup 的半透明底色及描边，Dock 使用灰色选中框，课程编辑器可半透明呈现；隐藏液态玻璃调整入口，材质分级只显示当前档位说明。\n" +
+                    "模型选择改用紧凑 Popup，并沿用设置菜单的展开动效；二级菜单同宽，父菜单缩小后退并冻结，按住悬停可展开二级菜单并继续滑动选择。\n" +
+                    "调整带停课、补课角标的日视图课程编辑形变，保持原卡材质和正文比例；修复周视图触发顶栏渐变模糊后切到日视图仍保留的问题。\n" +
+                    "修复小组件图片背景开关、系统添加预览和今日／今明课程缩略图；深浅色跟随系统，4×2 保留两列并改善多课程显示与标题大小，小米设备提供桌面手动添加指引。\n" +
+                    "调整小米超级岛及测试通知的发送逻辑，测试通知不再覆盖课程通知；课程组件过滤已结束的课程并在结束边界刷新，调休保存后重新安排课程提醒。\n" +
+                    "并列导航默认开启，深色模式默认跟随系统，Beta 更新执行一次默认开启迁移；统一设置说明文字。\n" +
+                    "减少课程玻璃的重复采样与页面切换的重复计算；超过 10 张卡时使用普通滑入并保留圆角裁切，非本周课程也进入甩尾分组。"
+                )
             changelogItem(
                     "1.2.7_beta4",
                     "AI 导入持续显示模型输出，生成完整预览后自动收起处理过程，仍可展开查看；不提供思考内容的模型会被要求返回阶段摘要。\n" +

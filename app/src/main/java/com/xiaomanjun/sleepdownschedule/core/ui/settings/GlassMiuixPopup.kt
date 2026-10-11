@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.zIndex
@@ -78,7 +79,10 @@ internal data class SleepDownLiquidMenuItem(
 )
 
 private class UpwardDropdownPositionProvider(
-    horizontalSafeInset: Dp
+    horizontalSafeInset: Dp,
+    private val overlapAnchor: Boolean = false,
+    private val morphHorizontalInset: Int = 0,
+    private val morphVerticalInset: Int = 0
 ) : PopupPositionProvider {
     private val margins = PaddingValues(horizontal = horizontalSafeInset, vertical = 8.dp)
 
@@ -98,9 +102,9 @@ private class UpwardDropdownPositionProvider(
             else -> layoutDirection == LayoutDirection.Rtl
         }
         val preferredX = if (endAligned) {
-            anchorBounds.right - popupContentSize.width - popupMargin.right
+            anchorBounds.right - popupContentSize.width - popupMargin.right + morphHorizontalInset
         } else {
-            anchorBounds.left + popupMargin.left
+            anchorBounds.left + popupMargin.left - morphHorizontalInset
         }
         val minX = windowBounds.left
         val maxX = (windowBounds.right - popupContentSize.width - popupMargin.right)
@@ -110,7 +114,8 @@ private class UpwardDropdownPositionProvider(
             .coerceAtLeast(minY)
         return IntOffset(
             x = preferredX.coerceIn(minX, maxX),
-            y = (anchorBounds.top - popupContentSize.height - popupMargin.top)
+            y = (if (overlapAnchor) anchorBounds.bottom - popupContentSize.height + morphVerticalInset
+                else anchorBounds.top - popupContentSize.height - popupMargin.top)
                 .coerceIn(minY, maxY)
         )
     }
@@ -125,6 +130,10 @@ private fun Modifier.miuixCascadingPopupSurface(
     blurRadius: Dp
 ): Modifier {
     val dark = appUsesDarkTheme(config)
+    if (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance) {
+        // The popup host owns its rounded outline and border on every Android version.
+        return background(com.xiaomanjun.sleepdownschedule.glass.flatControlColor(dark).copy(alpha = 0.90f))
+    }
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || backdrop == null) {
         return background(if (dark) Color(0xFF242424) else Color.White)
     }
@@ -210,7 +219,8 @@ private fun rememberMiuixListPopupStyle(
             fadeOutAtReleasePosition = true)
     }
     // Kyant's observer does not consume input: Miuix continues to own selection and dismissal.
-    val interaction = Modifier.liquidButtonVisualTransform(highlight).then(highlight.gestureModifier)
+    val visualInteraction = Modifier.liquidButtonVisualTransform(highlight)
+    val interaction = visualInteraction.then(highlight.gestureModifier)
     val rim = remember(dark) {
         BorderStroke(1.dp, Brush.verticalGradient(
             0f to Color.White.copy(alpha = if (dark) 0.38f else 0.66f),
@@ -231,7 +241,11 @@ private fun rememberMiuixListPopupStyle(
     ).then(highlight.modifier),
     backgroundColor = Color.Transparent,
     cornerRadius = cornerRadius,
-    border = rim,
+    itemTextStyle = MiuixTheme.textStyles.main.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+    itemVerticalPadding = 7.dp,
+    itemMinHeight = 40.dp,
+    border = if (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance)
+        BorderStroke(1.dp, com.xiaomanjun.sleepdownschedule.glass.flatControlBorder(dark)) else rim,
     morphAnimation = true,
     slideSelection = true,
     dimBackground = false,
@@ -241,7 +255,8 @@ private fun rememberMiuixListPopupStyle(
     shadowElevation = if (dark) 16.dp else 24.dp,
     ambientShadowColor = Color.Black.copy(alpha = if (dark) 0.125f else 0.22f),
     spotShadowColor = Color.Black.copy(alpha = 0.125f),
-    interactionModifier = interaction
+    interactionModifier = interaction,
+    suspendedInteractionModifier = visualInteraction
     )
 }
 
@@ -369,10 +384,13 @@ internal fun SleepDownLiquidCascadingPopup(
     backdrop: Backdrop?,
     config: ScheduleConfigEntity,
     panelMinWidth: Dp = 168.dp,
-    menuMaxHeight: Dp = 360.dp,
+    menuMaxHeight: Dp? = null,
     horizontalSafeInset: Dp = 0.dp,
     contentColor: Color? = null,
-    collapseOnSelection: Boolean = true
+    collapseOnSelection: Boolean = true,
+    morphFromAnchor: Boolean = false,
+    collapseContent: (@Composable () -> Unit)? = null,
+    onDismissFinished: (() -> Unit)? = null
 ) {
     val completeUnderlayBackdrop = LocalSettingsPopupBackdrop.current ?: backdrop
     val renderInRootScaffold = LocalCenteredDialogRenderInRootScaffold.current
@@ -395,9 +413,14 @@ internal fun SleepDownLiquidCascadingPopup(
         cornerRadius = 25.dp
     )
     val popupVisualStyle = basePrimaryVisualStyle.copy(
-        surfaceModifier = Modifier
+        // Capture the complete parent (including labels) for the child glass. The settings
+        // morph renderer draws its material and labels as siblings inside this container.
+        interactionModifier = Modifier
             .glassBackdropProducer(primaryPopupBackdrop)
-            .then(basePrimaryVisualStyle.surfaceModifier)
+            .then(basePrimaryVisualStyle.interactionModifier),
+        suspendedInteractionModifier = Modifier
+            .glassBackdropProducer(primaryPopupBackdrop)
+            .then(basePrimaryVisualStyle.suspendedInteractionModifier)
     )
     val secondaryPopupVisualStyle = rememberMiuixListPopupStyle(
         backdrop = secondaryUnderlayBackdrop,
@@ -407,13 +430,17 @@ internal fun SleepDownLiquidCascadingPopup(
     val popupRowColors = rememberSleepDownPopupRowColors(
         contentColor ?: sleepDownPanelForegroundColor(config)
     )
-    val popupPositionProvider = remember(horizontalSafeInset) {
-        UpwardDropdownPositionProvider(horizontalSafeInset)
+    val density = LocalDensity.current
+    val popupPositionProvider = remember(horizontalSafeInset, morphFromAnchor, density) {
+        UpwardDropdownPositionProvider(horizontalSafeInset, overlapAnchor = morphFromAnchor,
+            morphHorizontalInset = if (morphFromAnchor) with(density) { 7.dp.roundToPx() } else 0,
+            morphVerticalInset = if (morphFromAnchor) with(density) { 5.dp.roundToPx() } else 0)
     }
     OverlayCascadingListPopup(
         show = show,
         entries = listOf(entry),
         onDismissRequest = onDismissRequest,
+        onDismissFinished = onDismissFinished,
         popupPositionProvider = popupPositionProvider,
         alignment = PopupPositionProvider.Align.End,
         enableWindowDim = false,
@@ -428,6 +455,8 @@ internal fun SleepDownLiquidCascadingPopup(
         // be a later sibling during the first reveal frame. Keep the popup entry above that input
         // layer for the entire enter/exit handoff.
         popupModifier = Modifier.zIndex(1000f),
-        collapseOnSelection = collapseOnSelection
+        collapseOnSelection = collapseOnSelection,
+        morphFromAnchor = morphFromAnchor,
+        collapseContent = collapseContent
     )
 }

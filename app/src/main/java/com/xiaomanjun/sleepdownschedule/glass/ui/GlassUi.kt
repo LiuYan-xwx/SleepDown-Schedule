@@ -612,6 +612,7 @@ fun GlassSurface(
             backdrop = glassBackdrop,
             descriptor = descriptor,
             material = tokens,
+            fallbackColor = com.xiaomanjun.sleepdownschedule.glass.flatControlColor(!lightGlass),
             shape = shapeProvider ?: { shape },
             effectFrame = effectFrame,
             placementLayer = placementLayer,
@@ -640,7 +641,12 @@ fun GlassSurface(
                 this.shape = morphAllocation.envelope.insetShapeFor(morphAllocation.geometry())
                 clip = true
             })
-            .background(surfaceColor.copy(alpha = surfaceColor.alpha.coerceAtLeast(0.86f)))
+            .background(if (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance)
+                com.xiaomanjun.sleepdownschedule.glass.flatControlColor(!lightGlass).copy(alpha =
+                    com.xiaomanjun.sleepdownschedule.glass.flatMaterialOpacity(tokens.role, tokens.blur.value))
+                else surfaceColor.copy(alpha = surfaceColor.alpha.coerceAtLeast(0.86f)))
+            .then(if (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance)
+                Modifier.border(1.dp, com.xiaomanjun.sleepdownschedule.glass.flatControlBorder(!lightGlass), shape) else Modifier)
             .graphicsLayer {
                 val scale = 1f + 0.04f * pressProgress
                 scaleX = scale
@@ -843,6 +849,7 @@ internal fun Modifier.verticalGlassAccent(
     surroundingEdgeGlow: Boolean = false
 ): Modifier {
     val bounds = morphAllocation?.localBounds()
+    if (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance) return this
     val clipShape = morphAllocation?.let { it.envelope.insetShapeFor(it.geometry()) } ?: shape
     val lightWallpaper = surroundingEdgeGlow && lightGlass
     val edgeColor = accentColor
@@ -1045,11 +1052,26 @@ fun CourseGlassCard(
     sampledShape: Shape? = null,
     expandedOutlineLight: Boolean = false,
     muted: Boolean = false,
+    flatOpacityOverride: Float? = null,
     morphAllocation: com.xiaomanjun.sleepdownschedule.glass.GlassMorphAllocation? = null,
     surfaceBackdrop: LayerBackdrop? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    val materialPolicy = com.xiaomanjun.sleepdownschedule.core.performance.effectiveAppMaterialPolicy()
+    if (!materialPolicy.denseMaterials) {
+        val preview = LocalPersonalizationPreview.current
+        val base = if (muted) MutedCourseLightColor else courseCardBaseColor(config, course)
+        val opacity = flatOpacityOverride?.coerceIn(0f, 1f) ?: materialPolicy.opacity(blurOverride ?: preview?.cardBlur ?: config.courseCardBlur,
+            com.xiaomanjun.sleepdownschedule.model.courseCardBlurMaximum(config.courseCardGlassEnabled))
+        val background = rememberCourseTextBackground(base, opacity, false, 0f, false, false,
+            flatBackground = homeFlatBackgroundColor(appUsesDarkTheme(config)), ready = true, cardBounds = { null })
+        Box(modifier.clip(shape).then(if (renderSurface) Modifier.background(base.copy(alpha = opacity)) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
+            CompositionLocalProvider(LocalCourseTextBackground provides background) { content() }
+        }
+        return
+    }
     val occlusionPhase = LocalCourseGlassOcclusionPhase.current
     val materialRevealProgress = LocalCourseGlassMaterialRevealProgress.current
     val occlusionAllowsMaterial =
@@ -1081,6 +1103,7 @@ fun CourseGlassCard(
     val tokens = GlassTokens.courseCard(blurOverride ?: config.courseCardBlur)
     val lightGlass = glassUsesLightStyle(config)
     val liveLiquidBlur = blurOverride ?: previewState?.cardBlur ?: config.courseCardBlur
+    val performanceMaterial = materialPolicy.level == com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.PERFORMANCE
     val liveRefractionStrength = previewState?.cardRefractionStrength
         ?: config.courseCardRefractionStrength
     val outlineLightEnabled = muted || (config.courseCardGlassEnabled &&
@@ -1091,8 +1114,10 @@ fun CourseGlassCard(
         liveBlur = liveLiquidBlur,
         quality = quality,
         hasWallpaper = hasWallpaper,
-        refractionStrength = liveRefractionStrength
-    )
+        refractionStrength = if (performanceMaterial) 0f else liveRefractionStrength
+    ).let { frame ->
+        if (performanceMaterial) frame.copy(highlight = null, shadowAlpha = null, innerShadow = null) else frame
+    }
     val liquidDescriptor = rememberGlassSurfaceDescriptor(
         debugLabel = "CourseGlassCard",
         domain = GlassBackdropDomain.Content,
@@ -1165,15 +1190,23 @@ fun CourseGlassCard(
     } else liquidEffectFrame.copy(highlight = null)
     val presetHighlight = Modifier.presetCourseCardHighlight(
         shape = shape,
-        alpha = (liquidEffectFrame.highlight?.alpha ?: 0f) *
+        alpha = if (performanceMaterial) 0.20f else (liquidEffectFrame.highlight?.alpha ?: 0f) *
             if (outlineLightEnabled && lightGlass) 0.55f else 1f,
         enabled = { viewportMaterialVisible },
-        bounds = { morphAllocation?.localBounds() }
+        bounds = { morphAllocation?.localBounds() },
+        strokeWidth = if (performanceMaterial) 0.8.dp else 0.5.dp
     )
-    val liquidSurfaceDraw: DrawScope.() -> Unit = {
-        val liveAlpha = previewState?.cardAlpha ?: config.cardAlpha
+    val configuredAlpha = config.cardAlpha
+    val configuredBrightness = config.wallpaperBrightness
+    // Like Nexio's CourseCard, retain the actual surface callback, not only a wrapper.
+    // Replacing a callback stored in snapshot state invalidates the sampled draw even if
+    // its pixels are identical, which otherwise repeats work on unrelated recompositions.
+    val liquidSurfaceDraw: DrawScope.() -> Unit = remember(previewState, configuredAlpha,
+        configuredBrightness, outlineLightEnabled, quality, hasWallpaper, baseColor,
+        expandedOutlineLight, lightGlass) { {
+        val liveAlpha = previewState?.cardAlpha ?: configuredAlpha
         val brightnessAttenuation = courseCardBrightnessAttenuation(
-            config.wallpaperBrightness,
+            configuredBrightness,
             outlineLightEnabled
         )
         val tintStrength = if (outlineLightEnabled) 0.75f else liveAlpha
@@ -1190,7 +1223,10 @@ fun CourseGlassCard(
             blendMode = BlendMode.Screen
         )
         drawRect(Color.Black.copy(alpha = if (lightGlass) 0.004f else 0.014f))
-    }
+    } }
+    val stableCardShape: () -> Shape = remember(shape) { { shape } }
+    val stableMaterialEnabled: () -> Boolean = remember(drawMaterialNodes) { { drawMaterialNodes } }
+    val stableMaterialBounds: () -> Rect? = remember(morphAllocation) { { morphAllocation?.localBounds() } }
     val materialAlphaModifier = if (materialCrossfadeActive) {
         Modifier.graphicsLayer {
             alpha = materialRevealProgress().coerceIn(0f, 1f)
@@ -1237,7 +1273,7 @@ fun CourseGlassCard(
                             backdrop = requireNotNull(sampledSource),
                             descriptor = liquidDescriptor,
                             material = tokens,
-                            shape = { shape },
+                            shape = stableCardShape,
                             effectFrame = if (unifiedLiquidSurface) unifiedLiquidEffectFrame else cardEffects,
                             effectInputKey = if (unifiedLiquidSurface) unifiedLiquidEffectFrame.materialEffectsOnly() else cardEffects,
                             cacheSharedSamples = cacheSharedSamples,
@@ -1253,8 +1289,8 @@ fun CourseGlassCard(
                             },
                             cacheDecorations = morphAllocation == null,
                             placementLayer = morphAllocation != null,
-                            renderEnabled = { drawMaterialNodes },
-                            renderBounds = { morphAllocation?.localBounds() },
+                            renderEnabled = stableMaterialEnabled,
+                            renderBounds = stableMaterialBounds,
                             allocationPaddingPx = morphAllocation?.paddingPx,
                             onDrawSurface = if (unifiedLiquidSurface) liquidSurfaceDraw else null
                     )
@@ -1268,9 +1304,9 @@ fun CourseGlassCard(
                         backdrop = simpleBlurBackdrop,
                         descriptor = simpleDescriptor,
                         material = simpleMaterial,
-                        renderEnabled = { drawMaterialNodes },
+                        renderEnabled = stableMaterialEnabled,
                         placementLayer = false,
-                        shape = { shape },
+                        shape = stableCardShape,
                         effectFrame = GlassEffectFrame(blur = simpleBlurValue.dp)
                     )
             } else {
@@ -1353,7 +1389,7 @@ fun CourseGlassCard(
             }
             // Full-resolution additive inner light, independent of the sampled blur/lens. The base
             // tint fades toward the top while the brighter bottom light spreads with smooth falloff.
-            if (outlineLightEnabled) {
+            if (outlineLightEnabled && !performanceMaterial) {
                 VerticalGlassAccentOverlay(
                     accentColor = baseColor,
                     shape = shape,

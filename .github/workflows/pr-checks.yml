@@ -49,6 +49,8 @@ jobs:
           git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-scaffold-underlay.patch"
           git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-compact-dropdown.patch"
           git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-popup-slide-feedback.patch"
+          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-popup-hover-layout.patch"
+          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-cascading-anchor-morph.patch"
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -80,6 +82,22 @@ jobs:
           --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.ShiguangImportSessionCustomTimeTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.IcsScheduleCodecTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiImportDocumentTextTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiImportCheckpoint*'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiImportStreamActivityTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiImportActivityReportsTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiImportNotificationIsolationTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiLiveReasoningTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiImportConversationTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiEduImportProgressSessionTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiInteractiveImportTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiManagedProtocolRegressionTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.agent.AgentImport*Test'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.agent.AgentToolProtocolTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.agent.AgentTaskLoopTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.ChatGpt*Test'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.AiProviderPresetsTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.*Test'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.agent.AgentToolsTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.importing.ImportedWeekNormalizationTest'
           --tests 'com.xiaomanjun.sleepdownschedule.data.repository.AutoRefreshTimingPreservationTest'
           --tests 'com.xiaomanjun.sleepdownschedule.SharedPeriodSchemeRepositoryTest'
@@ -87,11 +105,16 @@ jobs:
           --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.BackupCodecTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.BackupExportImportPlanTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.BackupRoomRestoreTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.BackupRestoreCoordinatorTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.BackupRestoreServiceConcurrencyTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.webdav.WebDavClientTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.BackupSettingsCompletenessTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.backup.SharedPeriodSchemeBackupTest'
           -Psleepdown.miuixSourcePath="$GITHUB_WORKSPACE/.ci/miuix"
           -Psleepdown.useMavenMirrors=false
           --console=plain --no-daemon --no-parallel --max-workers=2 --stacktrace
+      - name: Package unsigned debug build
+        run: bash ./gradlew assembleGithubDebug -Psleepdown.miuixSourcePath="$GITHUB_WORKSPACE/.ci/miuix" -Psleepdown.useMavenMirrors=false --console=plain --no-daemon --no-parallel --max-workers=2
 
   result:
     name: PR checks

@@ -23,6 +23,8 @@ import java.net.URI
  * Agent never depends on one vendor's wire format.
  */
 enum class AgentToolName {
+    READ_IMPORT_JSON,
+    PATCH_IMPORT_JSON,
     GET_ACTION_GUIDE,
     PROPOSE_ACTIONS,
     GET_CURRENT_OVERVIEW,
@@ -71,6 +73,8 @@ enum class AgentRunStatusIcon {
 }
 
 internal fun AgentToolName.runStatus(): AgentRunStatus = when (this) {
+    AgentToolName.READ_IMPORT_JSON -> AgentRunStatus(AgentRunStatusIcon.SCHEDULE, "读取导入 JSON 草稿")
+    AgentToolName.PATCH_IMPORT_JSON -> AgentRunStatus(AgentRunStatusIcon.SCHEDULE, "编辑并校验导入草稿")
     AgentToolName.GET_ACTION_GUIDE -> AgentRunStatus(AgentRunStatusIcon.SETTINGS, "确认操作能力")
     AgentToolName.PROPOSE_ACTIONS -> AgentRunStatus(AgentRunStatusIcon.SCHEDULE, "准备变更预览")
     AgentToolName.UNKNOWN -> AgentRunStatus(AgentRunStatusIcon.THINKING, "修正工具调用")
@@ -97,7 +101,8 @@ internal fun AgentToolName.runStatus(): AgentRunStatus = when (this) {
 /** Immutable snapshot reads only need to be exposed once per user turn. */
 internal val AgentToolName.isOneShotPerTurn: Boolean
     get() = this !in setOf(AgentToolName.SEARCH_COURSES, AgentToolName.GET_ACTION_GUIDE,
-        AgentToolName.PROPOSE_ACTIONS, AgentToolName.UNKNOWN)
+        AgentToolName.PROPOSE_ACTIONS, AgentToolName.UNKNOWN,
+        AgentToolName.READ_IMPORT_JSON, AgentToolName.PATCH_IMPORT_JSON)
 
 internal fun AgentToolCall.cacheKey(): String = buildString {
     append(if (name == AgentToolName.UNKNOWN) requestedName else name.name)
@@ -117,8 +122,13 @@ internal fun agentToolDefinitions(
     forceMiMoWebSearch: Boolean = false,
     includeMemoryTool: Boolean = false,
     strictFunctions: Boolean = false,
-    excludedTools: Set<AgentToolName> = emptySet()
+    excludedTools: Set<AgentToolName> = emptySet(),
+    importWorkspace: Boolean = false
 ): JsonArray = buildJsonArray {
+    if (importWorkspace) {
+        agentImportToolDefinitions(strictFunctions).forEach { add(it) }
+        return@buildJsonArray
+    }
     add(agentPlanningToolDefinition(AgentToolName.GET_ACTION_GUIDE, strictFunctions))
     add(agentPlanningToolDefinition(AgentToolName.PROPOSE_ACTIONS, strictFunctions))
     if (AgentToolName.GET_CURRENT_OVERVIEW !in excludedTools) add(agentToolDefinition(
@@ -230,12 +240,14 @@ internal fun parseAgentStoredMessage(content: String): AgentStoredMessage {
  */
 internal fun agentResponsesToolDefinitions(
     includeMemoryTool: Boolean = false,
-    excludedTools: Set<AgentToolName> = emptySet()
+    excludedTools: Set<AgentToolName> = emptySet(),
+    importWorkspace: Boolean = false
 ): JsonArray = buildJsonArray {
     agentToolDefinitions(
         includeMemoryTool = includeMemoryTool,
         strictFunctions = true,
-        excludedTools = excludedTools
+        excludedTools = excludedTools,
+        importWorkspace = importWorkspace
     ).forEach { declaration ->
         val function = declaration.jsonObject["function"]?.jsonObject ?: return@forEach
         add(buildJsonObject {
@@ -254,7 +266,8 @@ private fun agentMemoryToolDefinition(strict: Boolean) = buildJsonObject {
         put("name", AgentToolName.UPDATE_MEMORY.name)
         put(
             "description",
-            "完整替换用户已授权保存的简短长期记忆。仅保存跨天仍有价值的稳定偏好或背景；" +
+            "谨慎调整长期记忆：先核对当前记忆，只改动有明确依据的条目，保留所有未涉及内容，再提交完整结果。" +
+                "不能用本轮摘要或新偏好覆盖整份记忆；整段重写、清空必须有当前用户明确要求，不确定先询问。仅保存跨天仍有价值的稳定偏好或背景；" +
                 "不得保存临时任务、当天安排、聊天复述或敏感凭据。没有值得更新的内容时不要调用。"
         )
         put("parameters", buildJsonObject {
@@ -264,7 +277,7 @@ private fun agentMemoryToolDefinition(strict: Boolean) = buildJsonObject {
                     put("type", "string")
                     put(
                         "description",
-                        "完整的新记忆文本，不是增量。用简短条目表达；明确忘记全部内容时传空字符串。"
+                        "谨慎合并后的完整记忆文本，未涉及的原有条目必须保留。提交前逐条检查是否遗漏；只有用户明确要求忘记全部内容时才传空字符串。"
                     )
                     put("maxLength", 1200)
                 })
@@ -376,6 +389,8 @@ internal fun executeAgentReadTools(
         if (call.name == AgentToolName.PROPOSE_ACTIONS) return@map prepareAgentActions(call, scopedFacts)
         val content = try {
             when (call.name) {
+                AgentToolName.READ_IMPORT_JSON, AgentToolName.PATCH_IMPORT_JSON ->
+                    throw IllegalArgumentException("此工具仅在导入草稿工作区可用")
                 AgentToolName.GET_ACTION_GUIDE -> agentActionGuide(call.arguments["area"].orEmpty())
                 AgentToolName.PROPOSE_ACTIONS -> error("Handled above")
                 AgentToolName.UNKNOWN -> throw IllegalArgumentException("未知工具；请使用本轮 tools 中的函数，修改通过 PROPOSE_ACTIONS 提交预览")

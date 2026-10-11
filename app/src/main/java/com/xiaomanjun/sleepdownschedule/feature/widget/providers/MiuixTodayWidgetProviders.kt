@@ -80,13 +80,14 @@ internal fun coursesWidgetLayoutMetrics(
     val courseTopMarginDp = 4
     val groupGapDp = 4
     val preferredGroupHeightDp = if (isSquare) 50 else (54f + 12f * expansionProgress).roundToInt()
+    val minimumGroupHeightDp = if (isSquare) 50 else (48f + 12f * expansionProgress).roundToInt()
     val availableHeightDp = (
         size.heightDp - verticalPaddingDp * 2 - headerHeightDp - courseTopMarginDp
     ).coerceAtLeast(34)
     val maximumRows = if (isSquare) 2 else 4
     val rowCapacity = floor(
         (availableHeightDp + groupGapDp).toFloat() /
-            (preferredGroupHeightDp + groupGapDp).toFloat()
+            (minimumGroupHeightDp + groupGapDp).toFloat()
     ).toInt().coerceIn(1, maximumRows)
     // Fold into two columns only when the host's real height cannot fit the visible courses.
     val useGrid = !isSquare && courseCount > rowCapacity
@@ -97,8 +98,10 @@ internal fun coursesWidgetLayoutMetrics(
     }
     val visibleCourses = courseCount.coerceAtMost(maxCourses).coerceAtLeast(1)
     val usedRows = if (useGrid) ceil(visibleCourses / 2f).toInt() else visibleCourses
+    // XML margins and RemoteViews heights round independently at fractional densities.
+    // Leave one dp inside the row budget so the final row cannot be clipped by that rounding.
     val groupHeightDp = floor(
-        (availableHeightDp - groupGapDp * (usedRows - 1)).toFloat() / usedRows.toFloat()
+        (availableHeightDp - groupGapDp * (usedRows - 1) - 1).toFloat() / usedRows.toFloat()
     ).toInt().coerceIn(34, preferredGroupHeightDp)
     val groupVerticalPaddingDp = (3f + 2f * progress(groupHeightDp, 38, preferredGroupHeightDp))
         .roundToInt()
@@ -208,8 +211,8 @@ private fun coursesWidgetTypography(
     val scale = metrics.textScale
     fun sp(base: Float, minimum: Float): Float = (base * scale).coerceAtLeast(minimum)
     return CoursesWidgetTypography(
-        titleSp = sp(if (variant == TodayWidgetVariant.SQUARE) 16f else 17f, 12f),
-        subtitleSp = sp(if (variant == TodayWidgetVariant.SQUARE) 12f else 15f, 10f),
+        titleSp = sp(if (variant == TodayWidgetVariant.SQUARE) 16f else 15f, 12f),
+        subtitleSp = sp(if (variant == TodayWidgetVariant.SQUARE) 12f else 12.5f, 10f),
         emptySp = sp(if (variant == TodayWidgetVariant.SQUARE) 13f else 15f, 10.5f),
         timeSp = sp(13.8f, 9.8f),
         courseNameSp = sp(16f, 11f),
@@ -387,7 +390,11 @@ internal fun launchWidgetWork(
 ): Job {
     val app = context.applicationContext as CourseScheduleApp
     return app.applicationScope.launch(Dispatchers.IO) {
-        widgetWorkMutex.withLock { block() }
+        widgetWorkMutex.withLock {
+            try { block() } finally {
+                MiuixTodayWidgetRenderer.scheduleNextBoundaryRefresh(context, app.repository.activeSnapshot())
+            }
+        }
     }
 }
 
@@ -465,11 +472,14 @@ open class TodayAssistantWidgetProviderHost : AppWidgetProvider() {
 
 internal object MiuixTodayWidgetRenderer {
     private var publishedPreviewIconResId: Int? = null
+    private var publishedTodayTomorrowPreview = false
     private val ACTION_REFRESH = "${BuildConfig.APPLICATION_ID}.action.REFRESH_TODAY_WIDGET"
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     fun isRefreshAction(action: String?): Boolean =
         action == ACTION_REFRESH ||
+            action == Intent.ACTION_USER_PRESENT ||
+            action == Intent.ACTION_CONFIGURATION_CHANGED ||
             action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             action == Intent.ACTION_BOOT_COMPLETED ||
             action == Intent.ACTION_DATE_CHANGED ||
@@ -501,6 +511,15 @@ internal object MiuixTodayWidgetRenderer {
         // Generated previews can reflect preferences; XML previews cannot. A rejected
         // (rate-limited) update is retried only on the next ordinary widget refresh.
         if (Build.VERSION.SDK_INT >= 35) {
+            if (!publishedTodayTomorrowPreview) {
+                val preview = RemoteViews(context.packageName, R.layout.widget_preview_today_tomorrow)
+                val size = canonicalWidgetPreviewSize(WidgetAppearanceVariant.TODAY_TOMORROW)
+                publishedTodayTomorrowPreview = manager.setWidgetPreview(
+                    ComponentName(context, TodayTomorrowWidgetProvider::class.java),
+                    android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN,
+                    RemoteViews(mapOf(SizeF(size.widthDp.toFloat(), size.heightDp.toFloat()) to preview))
+                )
+            }
             val iconResId = currentIconResId(context)
             if (publishedPreviewIconResId != iconResId) {
                 val preview = RemoteViews(context.packageName, R.layout.widget_preview_today_courses).apply {
@@ -572,15 +591,10 @@ internal object MiuixTodayWidgetRenderer {
             val views = sizes.map { size ->
                 size to buildViews(context, state, variant, appearance, size)
             }
-            val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && views.size > 1) {
-                RemoteViews(views.associate { (size, remote) ->
-                    SizeF(size.widthDp.toFloat(), size.heightDp.toFloat()) to remote
-                })
-            } else views.first().second
+            val result = widgetResponsiveViews(views)
             runCatching { manager.updateAppWidget(id, result) }
                 .onFailure { Log.e("ScheduleWidget", "Failed to update courses widget $id", it) }
         }
-        scheduleNextBoundaryRefresh(context, state)
     }
 
     internal fun buildViews(
@@ -606,7 +620,7 @@ internal object MiuixTodayWidgetRenderer {
         )
         val courses = allCourses.take(metrics.maxCourses)
         val layout = when (variant) {
-            TodayWidgetVariant.LARGE -> R.layout.widget_today_courses_miuix_adaptive_v3
+            TodayWidgetVariant.LARGE -> R.layout.widget_today_courses_miuix_adaptive_v4
             TodayWidgetVariant.SQUARE -> R.layout.widget_today_courses_square_adaptive_v2
         }
         val dark = usesDarkTheme(context, state.config)
@@ -939,9 +953,9 @@ internal object MiuixTodayWidgetRenderer {
         return com.xiaomanjun.sleepdownschedule.domain.schedule.coursesForDate(state, date)
     }
 
-    internal fun usesDarkTheme(context: Context, config: ScheduleConfigEntity): Boolean {
-        if (!config.followSystemDarkMode) return config.darkMode
-        val mode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+    internal fun usesDarkTheme(context: Context, @Suppress("UNUSED_PARAMETER") config: ScheduleConfigEntity): Boolean {
+        // RemoteViews belong to the launcher, independently of the app's selected theme.
+        val mode = context.applicationContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         return mode == Configuration.UI_MODE_NIGHT_YES
     }
 
@@ -956,7 +970,15 @@ internal object MiuixTodayWidgetRenderer {
         return PendingIntent.getBroadcast(context, 2402, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
-    private fun scheduleNextBoundaryRefresh(context: Context, state: AppState) {
+    internal fun scheduleNextBoundaryRefresh(context: Context, state: AppState) {
+        val manager = AppWidgetManager.getInstance(context)
+        val providers = listOf(TodayCoursesWidgetProvider::class.java, TodayCoursesSquareWidgetProvider::class.java,
+            TodayTomorrowWidgetProvider::class.java, WeekScheduleWidgetProvider::class.java, TodayAssistantWidgetProvider::class.java)
+        val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        if (providers.none { manager.getAppWidgetIds(ComponentName(context, it)).isNotEmpty() }) {
+            alarm.cancel(refreshPendingIntent(context))
+            return
+        }
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         val now = LocalTime.now(zone)
@@ -974,12 +996,19 @@ internal object MiuixTodayWidgetRenderer {
                 ZonedDateTime.of(today.plusDays(1), LocalTime.MIDNIGHT, zone).plusSeconds(2)
             now < LocalTime.of(6, 0) ->
                 ZonedDateTime.of(today, LocalTime.of(6, 0), zone).plusSeconds(2)
-            else -> ZonedDateTime.of(today.plusDays(1), LocalTime.of(22, 0), zone)
+            else -> ZonedDateTime.of(today, LocalTime.of(22, 0), zone)
         }
         val trigger = listOfNotNull(boundaryTrigger, stateTransitionTrigger).minOrNull()
             ?: stateTransitionTrigger
-        val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        alarm.set(AlarmManager.RTC, trigger.toInstant().toEpochMilli(), refreshPendingIntent(context))
+        val pending = refreshPendingIntent(context)
+        val timestamp = trigger.toInstant().toEpochMilli()
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarm.canScheduleExactAlarms()) {
+                alarm.setExact(AlarmManager.RTC, timestamp, pending)
+            } else alarm.set(AlarmManager.RTC, timestamp, pending)
+        } catch (_: SecurityException) {
+            alarm.set(AlarmManager.RTC, timestamp, pending)
+        }
     }
 }
 
@@ -1019,11 +1048,7 @@ internal object TodayAssistantWidgetRenderer {
             )
             val sizes = widgetRenderSizes(manager, id, variant)
             val views = sizes.map { size -> size to buildViews(context, state, weather, appearance, size) }
-            val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && views.size > 1) {
-                RemoteViews(views.associate { (size, remote) ->
-                    SizeF(size.widthDp.toFloat(), size.heightDp.toFloat()) to remote
-                })
-            } else views.first().second
+            val result = widgetResponsiveViews(views)
             runCatching { manager.updateAppWidget(id, result) }
                 .onFailure { Log.e("ScheduleWidget", "Failed to update assistant widget $id", it) }
         }
@@ -1099,10 +1124,7 @@ internal object TodayAssistantWidgetRenderer {
         }
         val alert = weather?.let(::widgetWeatherAlert)
         val trailingText = alert?.let { "⚠️ $it" }.orEmpty()
-        val dark = if (!state.config.followSystemDarkMode) state.config.darkMode else {
-            val mode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-            mode == Configuration.UI_MODE_NIGHT_YES
-        }
+        val dark = MiuixTodayWidgetRenderer.usesDarkTheme(context, state.config)
         val custom = WidgetBackgroundRenderer.render(context, appearance, size, 2, dark)
         val typography = assistantWidgetTypography(context, size)
         val layout = assistantWidgetLayoutMetrics(size, context.resources.configuration.fontScale)

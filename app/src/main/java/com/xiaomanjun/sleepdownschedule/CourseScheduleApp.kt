@@ -63,9 +63,12 @@ class CourseScheduleApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppMaterialPreferences.load(this)
+        com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager.initialize(this)
         AppIconManager.onIconChanged = { TodayCoursesWidgetProvider.refreshAll(this) }
         AppIconManager.applyStoredMode(this)
         AutoRefreshScheduleWorker.ensureSchedule(this, AutoRefreshScheduleStore.load(this))
+        com.xiaomanjun.sleepdownschedule.feature.backup.webdav.WebDavAutomation.schedule(this)
         SleepDownRemoteConfig.initialize(this, applicationScope)
         ActivityTransitionCoordinator.install(this)
         if (BuildConfig.SLEEPDOWN_EXPERIMENTAL_FEATURES) ColorOSCourseBridge.install(this, database)
@@ -78,6 +81,9 @@ class CourseScheduleApp : Application() {
             IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_USER_PRESENT) },
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        ContextCompat.registerReceiver(this, TodayCoursesWidgetProvider(),
+            IntentFilter(Intent.ACTION_USER_PRESENT).apply { addAction(Intent.ACTION_CONFIGURATION_CHANGED) },
+            ContextCompat.RECEIVER_NOT_EXPORTED)
         // Before Android 10, interruption-filter broadcasts reach only registered receivers.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             ContextCompat.registerReceiver(
@@ -89,6 +95,7 @@ class CourseScheduleApp : Application() {
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
+                com.xiaomanjun.sleepdownschedule.feature.backup.webdav.WebDavAutomation.checkOnForeground(this@CourseScheduleApp)
                 setTaskExcludedFromRecents(false)
                 NotificationScheduler.requestRefresh(this@CourseScheduleApp)
             }
@@ -167,7 +174,7 @@ class CourseScheduleApp : Application() {
 
     private suspend fun cleanupPersistedAppData() {
         runCatching {
-            BackupRestoreService(this, database).resumePending()
+            BackupRestoreService(this, database).resumePending { cleanupAfterBackupRecovery() }
         }.onSuccess { results ->
             results.flatMap { it.warnings }.forEach { warning ->
                 Log.w("CourseScheduleApp", "Backup restore resume: $warning")
@@ -175,6 +182,9 @@ class CourseScheduleApp : Application() {
         }.onFailure { error ->
             Log.w("CourseScheduleApp", "Backup restore resume failed", error)
         }
+    }
+
+    private suspend fun cleanupAfterBackupRecovery() {
         cleanupTransientCacheData()
         runCatching {
             repository.ensureDefaults()

@@ -27,13 +27,18 @@ internal fun rememberCourseTextBackground(
     cardBounds: () -> Rect?
 ): CourseTextBackground {
     val wallpaper = LocalHomeReadability.current
-    val frozen = LocalHomeBackgroundFrozen.current ||
-        LocalCourseTextMotionFrozen.current || LocalHomeTextContrastFrozen.current
-    return remember(wallpaper, frozen, base, tintAlpha, blurred, blurPx, outline, expanded, ready, flatBackground) {
+    val backgroundFrozen = LocalHomeBackgroundFrozen.current
+    val cardMotionFrozen = LocalCourseTextMotionFrozen.current
+    val textContrastFrozen = LocalHomeTextContrastFrozen.current
+    // Motion pauses sampling; it does not change the wallpaper or tint. Keep the same
+    // background identity and label caches across freeze/resume instead of recomposing
+    // all course text twice per switch and resampling unchanged resting bounds.
+    return remember(wallpaper, base, tintAlpha, blurred, blurPx, outline, expanded, ready,
+        flatBackground, backgroundFrozen, cardMotionFrozen, textContrastFrozen) {
         val flatLuminance = flatBackground?.let {
             base.copy(alpha = tintAlpha.coerceIn(0f, 1f)).compositeOver(it).luminance()
         }
-        CourseTextBackground(frozen, flatLuminance) { windowBounds ->
+        CourseTextBackground({ backgroundFrozen.value || cardMotionFrozen.value || textContrastFrozen.value }, flatLuminance) { windowBounds ->
             // Flat cards have an exact composite; no wallpaper/position read is needed, even
             // when transparency is low or the card has not received its first layout callback.
             if (flatLuminance != null) return@CourseTextBackground floatArrayOf(flatLuminance)

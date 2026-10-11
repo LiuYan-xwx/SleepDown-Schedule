@@ -157,11 +157,30 @@ fun GeneralSettingsScreen(
                         }
                     )
                     SettingsDivider()
-                    SettingsNavigationRow(
-                        title = "液态玻璃",
-                        subtitle = "调整首页顶栏、表头和底栏的玻璃效果。",
-                        onClick = onOpenLiquidGlass
+                    SleepDownLiquidDropdownPreference(
+                        title = "材质分级",
+                        summary = when (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.level) {
+                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.QUALITY -> "提供完整的液态玻璃和光感视效"
+                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.PERFORMANCE -> "提供部分液态玻璃和光感视效"
+                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.SUPER_PERFORMANCE -> "不提供任何液态玻璃和光感视效"
+                        },
+                        items = listOf("质感", "性能", "超级性能"),
+                        selectedIndex = com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.level.ordinal,
+                        backdrop = backdrop, config = visualConfig,
+                        onSelectedIndexChange = {
+                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.setLevel(
+                                context, com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.entries[it]
+                            )
+                        }
                     )
+                    if (!com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance) {
+                        SettingsDivider()
+                        SettingsNavigationRow(
+                            title = "液态玻璃",
+                            subtitle = "调整首页顶栏、表头和底栏的玻璃效果",
+                            onClick = onOpenLiquidGlass
+                        )
+                    }
                     SettingsDivider()
                     SettingsAppIconStyleRow(
                         selected = appIconStyle,
@@ -190,7 +209,7 @@ fun GeneralSettingsScreen(
                 SettingsGroup(backdrop = backdrop, config = visualConfig, modifier = Modifier.fillMaxWidth()) {
                     SleepDownLiquidDropdownPreference(
                         title = "导航模式",
-                        summary = "手机竖屏下的底栏布局。",
+                        summary = "手机竖屏下的底栏布局",
                         items = listOf("普通模式", "并列模式"),
                         selectedIndex = if (parallelNavigation) 1 else 0,
                         backdrop = backdrop, config = visualConfig,
@@ -253,7 +272,7 @@ fun GeneralSettingsScreen(
                 SettingsGroup(backdrop = backdrop, config = visualConfig, modifier = Modifier.fillMaxWidth()) {
                 SettingsToggleRow(
                     title = "隐藏后台卡片",
-                    subtitle = "以任意方式离开应用后，都从最近任务列表中隐藏本应用。",
+                    subtitle = "以任意方式离开应用后，都从最近任务列表中隐藏本应用",
                     checked = draft.hideFromRecents,
                     backdrop = backdrop,
                     onCheckedChange = { applyChange(draft.copy(hideFromRecents = it)) }
@@ -262,7 +281,7 @@ fun GeneralSettingsScreen(
                     SettingsDivider()
                     SettingsToggleRow(
                         title = "自动检查更新",
-                        subtitle = "每天首次打开应用时检查 Gitee 上的新版本。",
+                        subtitle = "每天首次打开应用时检查 Gitee 上的新版本",
                         checked = draft.autoCheckUpdates,
                         backdrop = backdrop,
                         onCheckedChange = { applyChange(draft.copy(autoCheckUpdates = it)) }
@@ -270,8 +289,8 @@ fun GeneralSettingsScreen(
                     SettingsDivider()
                     SettingsToggleRow(
                         title = "接收 Beta 版更新",
-                        subtitle = if (includeBetaUpdates) "更新渠道：正式版与 Beta 版。同版本正式版发布后也会提示。"
-                            else "更新渠道：仅正式版。开启后可提前体验 Beta 版。",
+                        subtitle = if (includeBetaUpdates) "更新渠道：正式版与 Beta 版；同版本正式版发布后也会提示"
+                            else "更新渠道：仅正式版；开启后可提前体验 Beta 版",
                         checked = includeBetaUpdates,
                         backdrop = backdrop,
                         onCheckedChange = {
@@ -324,12 +343,12 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
                 SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
                     SettingsInfoRow(
                         "AI 助理",
-                        "日视图展示今日安排；周视图下拉进入对话，在课前与开始时提醒。两个入口共享消息记录。"
+                        "日视图展示今日安排；周视图下拉进入对话，在课前与开始时提醒；两个入口共享消息记录"
                     )
                     SettingsDivider()
                     SettingsToggleRow(
                         title = "启用 AI 助理",
-                        subtitle = "显示课程、空档、天气与问答入口。",
+                        subtitle = "显示课程、空档、天气与问答入口",
                         checked = enabled,
                         backdrop = backdrop,
                         onCheckedChange = {
@@ -340,7 +359,7 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
                     SettingsDivider()
                     SettingsToggleRow(
                         title = "周视图 AI 助理",
-                        subtitle = "启用首页下拉对话与课程节点提醒。",
+                        subtitle = "启用首页下拉对话与课程节点提醒",
                         checked = weekAssistantEnabled,
                         backdrop = backdrop,
                         enabled = enabled,
@@ -352,7 +371,7 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
                     SettingsDivider()
                     SettingsToggleRow(
                         title = "天气提醒",
-                        subtitle = "使用设备粗略位置查询天气。",
+                        subtitle = "使用设备粗略位置查询天气",
                         checked = weatherEnabled,
                         backdrop = backdrop,
                         enabled = enabled,
@@ -368,7 +387,7 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
                     SettingsDivider()
                     SettingsToggleRow(
                         title = "助手记忆",
-                        subtitle = "跨天记住你明确表达的长期偏好与背景。",
+                        subtitle = "跨天记住你明确表达的长期偏好与背景",
                         checked = memoryEnabled,
                         backdrop = backdrop,
                         onCheckedChange = {
@@ -421,7 +440,7 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
                     SettingsDivider()
                     SettingsActionRow(
                         title = "清空导入历史",
-                        subtitle = "删除本机保存的最近导入上下文，不影响已经导入的课表。",
+                        subtitle = "删除本机保存的最近导入上下文，不影响已经导入的课表",
                         buttonText = "清空",
                         iconRes = R.drawable.ic_delete_history,
                         backdrop = backdrop,
@@ -453,7 +472,7 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
         config = state.config
     ) {
             Text(
-                "这里保存的是助手可跨天使用的简短长期记忆。你可以直接修改；关闭记忆后内容会保留，但不会再注入对话或由助手更新。",
+                "这里保存的是助手可跨天使用的简短长期记忆；你可以直接修改；关闭记忆后内容会保留，但不会再注入对话或由助手更新",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -464,7 +483,7 @@ fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
                     .fillMaxWidth()
                     .heightIn(min = 180.dp, max = 300.dp),
                 placeholder = {
-                    Text("例如：默认只修改本周；跨校区课程之间预留 30 分钟。")
+                    Text("例如：默认只修改本周；跨校区课程之间预留 30 分钟")
                 },
                 minLines = 6,
                 maxLines = 10,
@@ -572,6 +591,7 @@ fun AiImportSettingsSection(
         ?: AiProviderPresets.byId(selectedProviderId)
     val isCustomProvider = AiProviderPresets.isCustomId(selectedProviderId)
     val isManagedFreeProvider = AiProviderPresets.isManagedFreeId(selectedProviderId)
+    val isChatGptProvider = AiProviderPresets.isChatGptId(selectedProviderId)
     val effectiveCustomProviderName = customProviderName.trim().ifBlank { selectedPreset.displayName }
     val customProviderDisplayName = effectiveCustomProviderName.ifBlank { "未命名自定义接口" }
     val pickerPresets = if (isCustomProvider) {
@@ -595,7 +615,7 @@ fun AiImportSettingsSection(
         availableModels = configuredModelIds
     )
     val modelOptions = AiProviderPresets.modelOptions(modelProfile)
-    val modelEditable = !isManagedFreeProvider && (modelOptions.isEmpty() || modelUsesCustomInput)
+    val modelEditable = !isManagedFreeProvider && !isChatGptProvider && (modelOptions.isEmpty() || modelUsesCustomInput)
     val selectedModelOptionIndex = if (modelUsesCustomInput) {
         modelOptions.size
     } else {
@@ -649,10 +669,10 @@ fun AiImportSettingsSection(
         availableModels = configuredModelIds,
         reasoningEffort = effectiveReasoningEffort
     )
-    val profile = if (isManagedFreeProvider) {
-        selectedPreset.copy(reasoningEffort = effectiveReasoningEffort)
-    } else {
-        editableProfile
+    val profile = when {
+        isManagedFreeProvider -> selectedPreset.copy(reasoningEffort = effectiveReasoningEffort)
+        isChatGptProvider -> AiProviderPresets.normalizeChatGptProfile(editableProfile)
+        else -> editableProfile
     }
     fun hasCustomProviderDraft(apiKey: String): Boolean = customProviderDraftHasContent(
         name = customProviderName,
@@ -694,7 +714,8 @@ fun AiImportSettingsSection(
         remoteConfigState.bootstrap?.ai?.configVersion,
         remoteConfigState.bootstrap?.ai?.enabled,
         remoteConfigState.bootstrap?.ai?.keyId,
-        remoteConfigState.bootstrap?.ai?.message
+        remoteConfigState.bootstrap?.ai?.message,
+        remoteConfigState.bootstrap?.aiConfigs
     ) {
         if (isManagedFreeProvider) reload()
     }
@@ -767,7 +788,7 @@ fun AiImportSettingsSection(
     }
     fun save(showMessage: Boolean = true): Boolean {
         val nextKey = apiKeyInput.ifBlank { saved.apiKey }
-        if (!aiDisabled && (profile.baseUrl.isBlank() || profile.defaultModel.isBlank())) {
+        if (!aiDisabled && !isChatGptProvider && (profile.baseUrl.isBlank() || profile.defaultModel.isBlank())) {
             message = "请先填写接口地址和模型名称"
             return false
         }
@@ -790,7 +811,7 @@ fun AiImportSettingsSection(
             profile,
             nextKey.takeUnless { aiDisabled }.orEmpty()
         )
-        if (aiDisabled || (profile.baseUrl.isNotBlank() && profile.defaultModel.isNotBlank())) {
+        if (aiDisabled || isChatGptProvider || (profile.baseUrl.isNotBlank() && profile.defaultModel.isNotBlank())) {
             AiImportSettingsStore.save(context, nextSettings)
         } else {
             // Preserve incomplete input as a provider-scoped draft without making
@@ -821,7 +842,7 @@ fun AiImportSettingsSection(
                 SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
         SettingsInfoRow(
             "AI 设置",
-            "配置 AI 助理、AI 对话、教务课表解析等智能功能共用的模型服务。API Key 按服务商分别加密保存在本机，不会写入课表数据库或诊断日志。选择“无”可停用所有联网 AI 能力，本地课表功能不受影响。"
+            "配置 AI 助理、AI 对话、教务课表解析等智能功能共用的模型服务。ChatGPT 使用账号登录，其他接口的 API Key 分别加密保存在本机。登录凭据不会写入课表备份或诊断日志。选择“无”可停用联网 AI 能力。"
         )
         AiProviderPickerRow(
             value = if (isCustomProvider) customProviderDisplayName else selectedPreset.displayName,
@@ -838,14 +859,31 @@ fun AiImportSettingsSection(
             SettingsDivider()
             SettingsInfoRow(
                 "AI 功能已停用",
-                "AI 助理将使用本地时间与课程模板，AI 对话和 AI 教务解析入口不会发起模型请求。已保存的其他服务商 Key 会保留，重新选择后可继续使用。"
+                "AI 助理将使用本地时间与课程模板，AI 对话和 AI 教务解析入口不会发起模型请求；已保存的其他服务商 Key 会保留，重新选择后可继续使用"
             )
         }
                 }
             }
         }
         if (!aiDisabled) {
-        if (isManagedFreeProvider) {
+        if (isChatGptProvider) {
+            item(key = "chatgpt-account") {
+                ChatGptSettingsPanel(
+                    config = state.config,
+                    backdrop = backdrop,
+                    selectedModel = model,
+                    onBeforeLogin = {
+                        AiImportSettingsStore.save(context, AiImportSettings(profile, ""))
+                    },
+                    onModelsChanged = { models, selected ->
+                        availableModelsText = models.joinToString("\n") { it.slug }
+                        model = selected.slug
+                        supportsVision = selected.supportsImages
+                        modelUsesCustomInput = false
+                    }
+                )
+            }
+        } else if (isManagedFreeProvider) {
             item(key = "ai-model-reasoning") {
                 GlassPreferenceSection("模型与推理") {
                     SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
@@ -856,7 +894,7 @@ fun AiImportSettingsSection(
 			SettingsActionRow(
 				title = "远程配置",
 				subtitle = remoteConfigState.lastError?.let { "刷新失败：$it" }
-					?: if (remoteConfigState.isRefreshing) "正在获取后台最新配置…" else "进入本页时会自动刷新，也可在这里立即重试。",
+					?: if (remoteConfigState.isRefreshing) "正在获取后台最新配置…" else "进入本页时会自动刷新，也可在这里立即重试",
 				buttonText = if (remoteConfigState.isRefreshing) "刷新中" else "刷新",
 				iconRes = R.drawable.ic_refresh,
 				backdrop = backdrop,
@@ -954,9 +992,9 @@ fun AiImportSettingsSection(
         SettingsToggleRow(
             title = "Responses API",
             subtitle = if (modelSupportsResponses) {
-                "开启后 AI 导入与 AI 助理的所有请求统一使用 /responses。"
+                "开启后 AI 导入与 AI 助理的所有请求统一使用 /responses"
             } else {
-                "当前模型没有已知的 Responses 能力，将继续使用 Chat Completions。"
+                "当前模型没有已知的 Responses 能力，将继续使用 Chat Completions"
             },
             checked = responsesEnabled && modelSupportsResponses,
             backdrop = backdrop,
@@ -984,7 +1022,7 @@ fun AiImportSettingsSection(
         if (isCustomProvider) {
             SettingsToggleRow(
                 title = "文件上传",
-                subtitle = "允许 AI 助理向该兼容接口发送图片附件。",
+                subtitle = "允许 AI 助理向该兼容接口发送图片附件",
                 checked = supportsFileUpload,
                 backdrop = backdrop,
                 onCheckedChange = {
@@ -1017,6 +1055,7 @@ fun AiImportSettingsSection(
             }
         }
         }
+        if (!isChatGptProvider) {
         item(key = "ai-testing") {
             GlassPreferenceSection("测试与管理") {
                 SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
@@ -1092,6 +1131,7 @@ fun AiImportSettingsSection(
             }
         }
         }
+        }
         val currentMessage = message
         if (currentMessage != null) {
             item(key = "ai-message") {
@@ -1145,7 +1185,7 @@ private fun AiCompatibleModelsEditor(
     ) {
         Text("兼容站模型列表", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
         Text(
-            "每行一个模型 ID。右下角菜单会从这里读取，第一项作为新建接口的默认模型。",
+            "每行一个模型 ID；右下角菜单会从这里读取，第一项作为新建接口的默认模型",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

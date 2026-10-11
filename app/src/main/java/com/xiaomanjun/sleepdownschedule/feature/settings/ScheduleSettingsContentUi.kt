@@ -93,7 +93,9 @@ fun ScheduleSettingsContent(
     autoCurrentWeek: Boolean,
     onAutoCurrentWeekChange: (Boolean) -> Unit,
     hideEmptyWeekends: Boolean,
+    showNonCurrentWeekCourses: Boolean,
     onHideEmptyWeekendsChange: (Boolean) -> Unit,
+    onShowNonCurrentWeekCoursesChange: (Boolean) -> Unit,
     termStartDate: String,
     onTermStartDateChange: (String) -> Unit,
     classDurationMinutes: String,
@@ -142,7 +144,9 @@ fun ScheduleSettingsContent(
             autoCurrentWeek = autoCurrentWeek,
             onAutoCurrentWeekChange = onAutoCurrentWeekChange,
             hideEmptyWeekends = hideEmptyWeekends,
+            showNonCurrentWeekCourses = showNonCurrentWeekCourses,
             onHideEmptyWeekendsChange = onHideEmptyWeekendsChange,
+            onShowNonCurrentWeekCoursesChange = onShowNonCurrentWeekCoursesChange,
             termStartDate = termStartDate,
             onTermStartDateChange = onTermStartDateChange,
             classDurationMinutes = classDurationMinutes,
@@ -296,7 +300,7 @@ fun ScheduleSettingsContent(
                             SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
                                 SettingsToggleRow(
                                     title = if (experimentalNotifications.superIslandEnabled) "提醒按钮" else "实时活动按钮",
-                                    subtitle = "显示取消提醒和课程勿扰按钮。",
+                                    subtitle = "显示取消提醒和课程勿扰按钮",
                                     checked = liveUpdateActionsEnabled,
                                     backdrop = backdrop,
                                     enabled = notificationsEnabled,
@@ -373,7 +377,7 @@ fun ScheduleSettingsContent(
                     SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
                         SettingsInfoRow(
                             title = "系统权限",
-                            body = "允许通知与后台运行，及时接收课程提醒。"
+                            body = "允许通知与后台运行，及时接收课程提醒"
                         )
                         SettingsDivider()
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
@@ -460,7 +464,9 @@ fun ScheduleSettingsContentFixed(
     autoCurrentWeek: Boolean,
     onAutoCurrentWeekChange: (Boolean) -> Unit,
     hideEmptyWeekends: Boolean,
+    showNonCurrentWeekCourses: Boolean,
     onHideEmptyWeekendsChange: (Boolean) -> Unit,
+    onShowNonCurrentWeekCoursesChange: (Boolean) -> Unit,
     termStartDate: String,
     onTermStartDateChange: (String) -> Unit,
     classDurationMinutes: String,
@@ -509,6 +515,9 @@ fun ScheduleSettingsContentFixed(
                 SettingsToggleRow("自动计算当前周", "", autoCurrentWeek, backdrop, onCheckedChange = onAutoCurrentWeekChange)
                 SettingsDivider()
                 SettingsToggleRow("隐藏空周末", "", hideEmptyWeekends, backdrop, onCheckedChange = onHideEmptyWeekendsChange)
+                SettingsDivider()
+                SettingsToggleRow("显示非本周课程", "以浏览周为准，灰色展示且优先显示当周课程",
+                    showNonCurrentWeekCourses, backdrop, onCheckedChange = onShowNonCurrentWeekCoursesChange)
                 SettingsDivider()
                 SettingsDatePickerRow("学期开始日期", termStartDate, onTermStartDateChange, backdrop, state.config)
             }

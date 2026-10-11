@@ -25,7 +25,6 @@ data class WeekConflictGroup(
     val courses: List<CourseEntity> = segments
         .map { it.course }
         .distinctBy { it.id }
-        .sortedBy { it.id }
 
     val hasConflict: Boolean get() = courses.size > 1
 }
@@ -104,7 +103,8 @@ fun buildWeekConflictGroups(
         }
         groups += WeekConflictGroup(
             component.sortedWith(
-                compareBy<WeekCourseSegment> { it.startPosition }
+                compareBy<WeekCourseSegment> { courseStartTime(it.course, periodDefinitions) ?: LocalTime.MIN }
+                    .thenBy { it.startPosition }
                     .thenBy { it.endPosition }
                     .thenBy { it.course.id }
             )
@@ -141,7 +141,7 @@ fun CourseEntity.conflictsWith(
     return periods.any(otherPeriods::contains)
 }
 
-private fun CourseEntity.occupiedTimeIntervals(
+internal fun CourseEntity.occupiedTimeIntervals(
     periodDefinitions: List<PeriodEntity>
 ): List<Pair<LocalTime, LocalTime>> {
     return courseTimeSegments(this, periodDefinitions).map { it.start to it.end }

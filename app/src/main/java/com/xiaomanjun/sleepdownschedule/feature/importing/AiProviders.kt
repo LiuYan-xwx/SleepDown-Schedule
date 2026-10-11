@@ -32,6 +32,17 @@ internal object AiEndpointDiagnostics {
 }
 
 internal fun AiProviderConfig.normalizedForRequest(): AiProviderConfig {
+    if (providerId == AiProviderPresets.chatGpt.id) return copy(
+        apiKey = "",
+        baseUrl = "https://api.openai.com/v1",
+        authType = AiAuthType.ChatGptOAuth,
+        endpointStyle = AiEndpointStyle.RESPONSES,
+        responsesPath = "/responses",
+        supportsResponses = true,
+        supportsFileUpload = false,
+        supportsPdfDirect = false,
+        inputMode = AiInputMode.AUTO
+    )
     val useResponses = (AiEndpointDiagnostics.forcedEndpointStyle ?: endpointStyle) ==
         AiEndpointStyle.RESPONSES && supportsResponses
     val configuredPath = if (useResponses) responsesPath else chatCompletionsPath
@@ -291,15 +302,8 @@ internal class OpenAiCompatibleChatProvider : AiScheduleImportProvider {
         firstResult: AiProviderTextResult,
         networkContext: AiImportNetworkContext
     ): AiProviderTextResult {
-        var combinedContent = firstResult.content
-        var combinedReasoning = firstResult.reasoning
-        var finishReason = firstResult.finishReason
-        repeat(2) { attempt ->
-            if (finishReason != "length") return AiProviderTextResult(
-                content = combinedContent,
-                reasoning = combinedReasoning,
-                finishReason = finishReason
-            )
+        return continueTruncatedImportText(firstResult) { combinedContent ->
+            networkContext.interaction?.checkActive()
             val messages = buildJsonArray {
                 originalMessages.jsonArray.forEach { add(it) }
                 add(buildJsonObject {
@@ -331,22 +335,14 @@ internal class OpenAiCompatibleChatProvider : AiScheduleImportProvider {
                 config.providerId,
                 networkContext
             )
-            val next = runCatching {
+            networkContext.interaction?.checkActive()
+            runCatching {
                 parseChatCompletionTextResult(response)
             }.getOrElse {
                 if (it is AiServiceResponseException) throw it
                 throw AiServiceResponseException("AI 续写响应结构无法解析：${it.message.orEmpty()}", response, it)
             }
-            val continuation = next.content
-            combinedContent += continuation
-            if (next.reasoning.isNotBlank()) {
-                combinedReasoning = listOf(combinedReasoning, "续写 ${attempt + 1}：\n${next.reasoning}")
-                    .filter { it.isNotBlank() }
-                    .joinToString("\n\n")
-            }
-            finishReason = next.finishReason
         }
-        return AiProviderTextResult(content = combinedContent, reasoning = combinedReasoning, finishReason = finishReason)
     }
 }
 

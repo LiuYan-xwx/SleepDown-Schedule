@@ -109,7 +109,8 @@ internal class WeekTailTimeline(initialPosition: Float) {
 }
 
 @Stable
-internal class WeekPageTailMotion(val pager: PagerState) {
+internal class WeekPageTailMotion(val pager: PagerState, samplingEnabled: Boolean = true) {
+    var materialSamplingEnabled by mutableStateOf(samplingEnabled)
     private val initial = pager.currentPage + pager.currentPageOffsetFraction
     private val timeline = WeekTailTimeline(initial)
     private var positions by mutableStateOf(List(WeekTailGroups) { initial })
@@ -182,8 +183,14 @@ internal class WeekPageTailMotion(val pager: PagerState) {
             if (needsSettledSample && !pager.isScrollInProgress) {
                 // A fast swipe can finish placement after the last follower's recording.
                 // Refresh once on the following frame at the final layout coordinates.
-                withFrameNanos { }
-                settledSampleRevision++
+                if (materialSamplingEnabled) {
+                    withFrameNanos { }
+                    if (materialSamplingEnabled) {
+                        settledSampleRevision++
+                        if (com.xiaomanjun.sleepdownschedule.glass.MaterialSamplingDiagnostics.enabled)
+                            com.xiaomanjun.sleepdownschedule.glass.MaterialSamplingDiagnostics.dedicatedRefreshes++
+                    }
+                }
                 needsSettledSample = false
             }
         }
@@ -191,8 +198,9 @@ internal class WeekPageTailMotion(val pager: PagerState) {
 }
 
 @Composable
-internal fun rememberWeekPageTailMotion(pager: PagerState): WeekPageTailMotion {
-    val motion = remember(pager) { WeekPageTailMotion(pager) }
+internal fun rememberWeekPageTailMotion(pager: PagerState, samplingEnabled: Boolean = true): WeekPageTailMotion {
+    val motion = remember(pager) { WeekPageTailMotion(pager, samplingEnabled) }
+    SideEffect { motion.materialSamplingEnabled = samplingEnabled }
     LaunchedEffect(motion) {
         val scale = coroutineContext[MotionDurationScale]
         motion.follow { scale?.scaleFactor ?: 1f }
@@ -254,7 +262,7 @@ internal fun Modifier.weekPageTail(
 internal fun WeekPageSamplingScope(
     motion: WeekPageTailMotion,
     page: Int,
-    homeSwitching: Boolean,
+    homeSwitching: State<Boolean>,
     jump: AdjacentWeekJump? = null,
     content: @Composable () -> Unit
 ) {
@@ -265,29 +273,37 @@ internal fun WeekPageSamplingScope(
     // While visible, release other weeks only after their last tail group leaves.
     val mounted by remember(motion, page, homeSwitching, jump, paneVisible) {
         derivedStateOf {
-            if (!paneVisible) page == motion.pager.settledPage else
+            if (!paneVisible.value) page == motion.pager.settledPage else
                 (jump == null || jump.contains(page)) &&
-                    (if (homeSwitching) page == motion.pager.settledPage else
+                    (if (homeSwitching.value) page == motion.pager.settledPage else
                         jump?.targetPage == page || motion.pageVisible(page))
         }
     }
     if (!mounted) return
     val mountedSampleRevision = remember(page) { mutableIntStateOf(0) }
-    LaunchedEffect(page) {
+    val materialEnabled = motion.materialSamplingEnabled
+    LaunchedEffect(page, materialEnabled) {
+        if (!materialEnabled) return@LaunchedEffect
         // The first visible frame can precede the shared wallpaper recorder. Refresh once
         // after its layer and this page have both reached a stable placement.
         withFrameNanos { }
         withFrameNanos { }
         mountedSampleRevision.intValue++
+        if (com.xiaomanjun.sleepdownschedule.glass.MaterialSamplingDiagnostics.enabled)
+            com.xiaomanjun.sleepdownschedule.glass.MaterialSamplingDiagnostics.dedicatedRefreshes++
     }
     val key = remember(motion, parentKey) {
         derivedStateOf { Triple(parentKey(), motion.sampleKey, mountedSampleRevision.intValue) }
     }
     val sampleKey = remember(key) { { key.value } }
+    val parentTextFrozen = LocalHomeTextContrastFrozen.current
+    val textFrozen = remember(parentTextFrozen, motion) {
+        derivedStateOf { parentTextFrozen.value || motion.moving }
+    }
     CompositionLocalProvider(
         LocalWeekPageSlot provides page,
         LocalGlassSampleRecordKey provides sampleKey,
-        LocalHomeTextContrastFrozen provides (LocalHomeTextContrastFrozen.current || motion.moving)
+        LocalHomeTextContrastFrozen provides textFrozen
     ) {
         content()
     }

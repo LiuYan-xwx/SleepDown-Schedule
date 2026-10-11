@@ -303,6 +303,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
@@ -432,20 +433,21 @@ fun HomeReadableText(
     overflow: TextOverflow = TextOverflow.Clip
 ) {
     val readability = LocalHomeReadability.current
-    val backgroundFrozen = LocalHomeBackgroundFrozen.current || LocalHomeTextContrastFrozen.current
+    val backgroundFrozen = LocalHomeBackgroundFrozen.current
+    val textContrastFrozen = LocalHomeTextContrastFrozen.current
     val hasWallpaper = readability.config?.hasAnyWallpaper() == true
     var targetShadowStrength by remember(color) { mutableFloatStateOf(0f) }
     val shadowStrength by animateFloatAsState(targetShadowStrength, tween(160), label = "home-text-soft-shadow")
     val textLayout = remember { mutableStateOf<TextLayoutResult?>(null) }
     val coordinates = remember { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(1) }
     // Reuse each decision until the actual text bounds or wallpaper inputs change.
-    val lastSample = remember(readability, color, backgroundFrozen) { arrayOfNulls<Rect>(1) }
+    val lastSample = remember(readability, color) { arrayOfNulls<Rect>(1) }
     fun updateContrast() {
         if (!hasWallpaper) {
             targetShadowStrength = 0f
             return
         }
-        if (backgroundFrozen) return
+        if (backgroundFrozen.value || textContrastFrozen.value) return
         val position = coordinates[0]?.takeIf { it.isAttached } ?: return
         val layout = textLayout.value ?: return
         if (layout.lineCount == 0) return
@@ -475,7 +477,12 @@ fun HomeReadableText(
         }
         targetShadowStrength = requiredStrength
     }
-    LaunchedEffect(readability, color, backgroundFrozen, hasWallpaper) { updateContrast() }
+    val currentUpdateContrast by rememberUpdatedState(::updateContrast)
+    LaunchedEffect(readability, color, backgroundFrozen, textContrastFrozen, hasWallpaper) {
+        snapshotFlow { backgroundFrozen.value || textContrastFrozen.value }.collect { frozen ->
+            if (!frozen) currentUpdateContrast()
+        }
+    }
     val density = LocalDensity.current
     val lightText = color.luminance() >= 0.5f
     val effectiveFontSize = when {
@@ -496,13 +503,24 @@ fun HomeReadableText(
             blurRadius = radius
         ))
     }
+    // Updating contrast/shadow must not replace Text's layout callback and invalidate its
+    // paragraph cache. Only real text, typography or constraints should request remeasurement.
+    val currentPositioned = rememberUpdatedState<(androidx.compose.ui.layout.LayoutCoordinates) -> Unit> {
+        coordinates[0] = it
+        updateContrast()
+    }
+    val currentTextLayout = rememberUpdatedState<(TextLayoutResult) -> Unit> {
+        textLayout.value = it
+        updateContrast()
+    }
+    val onPositioned = remember {
+        { value: androidx.compose.ui.layout.LayoutCoordinates -> currentPositioned.value(value) }
+    }
+    val onLayout = remember { { value: TextLayoutResult -> currentTextLayout.value(value) } }
     Box(modifier = modifier.homeCountdownShockwave(0.55f)) {
         Text(
             text = text,
-            modifier = Modifier.onGloballyPositioned {
-                coordinates[0] = it
-                updateContrast()
-            },
+            modifier = Modifier.onGloballyPositioned(onPositioned),
             color = color,
             style = shadowStyle,
             fontWeight = fontWeight,
@@ -512,10 +530,7 @@ fun HomeReadableText(
             maxLines = maxLines,
             softWrap = softWrap,
             overflow = overflow,
-            onTextLayout = {
-                textLayout.value = it
-                updateContrast()
-            }
+            onTextLayout = onLayout
         )
     }
 }
@@ -704,6 +719,7 @@ internal fun HomeScreen(
     onContentUnderTopBarChange: (Boolean) -> Unit,
     onWeekHeaderPreview: (Int?) -> Unit = {},
     onWeekJumpSettled: (Int) -> Unit = {},
+    onRenderedCardCountChanged: (HomeMode, Int) -> Unit = { _, _ -> },
     dayAgentBackgroundMotionState: DayAgentBackgroundMotionState,
     onAgentPagerSettledChange: (Boolean) -> Unit = {},
     onAgentPrepareOpen: suspend () -> Unit = {},
@@ -743,6 +759,7 @@ internal fun HomeScreen(
     // Recomputing it here on tablets discarded live slider updates and made personalization look
     // broken even though the config was saved correctly.
     val effectiveWeekCardHeight = weekCardHeight
+    val reportModeContentUnderTopBar = rememberHomeTopBarScrollReporter(mode, state.config.id, onContentUnderTopBarChange)
 
     LaunchedEffect(state.config.id, weekEditInteractionEnabled) {
         if (!weekEditInteractionEnabled) {
@@ -782,11 +799,16 @@ internal fun HomeScreen(
                 }
             }
     ) {
-        BackHandler(enabled = LocalHomePaneVisible.current && mode == HomeMode.Week && weekEditMode) {
+        BackHandler(enabled = weekEditMode && mode == HomeMode.Week && LocalHomePaneVisible.current.value) {
             weekEditMode = false
         }
         HomeMode.entries.forEach { targetMode ->
             key(targetMode) {
+            val reportContentUnderTopBar = remember(targetMode, reportModeContentUnderTopBar) {
+                { under: Boolean ->
+                    reportModeContentUnderTopBar(targetMode, under)
+                }
+            }
             HomeSwitchPane(
                 motion = modeMotion,
                 secondary = targetMode == HomeMode.Week,
@@ -811,7 +833,8 @@ internal fun HomeScreen(
                         backdrop = backdrop,
                         dayAgentBackdrop = dayAgentBackdrop,
                         onSwipeDay = onSwipeDay,
-                        onContentUnderTopBarChange = { if (mode == targetMode) onContentUnderTopBarChange(it) },
+                        onContentUnderTopBarChange = reportContentUnderTopBar,
+                        onRenderedCardCountChanged = { onRenderedCardCountChanged(HomeMode.Day, it) },
                         dayAgentBackgroundMotionState = dayAgentBackgroundMotionState,
                         onAgentPagerSettledChange = onAgentPagerSettledChange,
                         onAgentPrepareOpen = onAgentPrepareOpen,
@@ -851,7 +874,8 @@ internal fun HomeScreen(
                             onSwipeWeek = onSwipeWeek,
                             onWeekHeaderPreview = onWeekHeaderPreview,
                             onWeekJumpSettled = onWeekJumpSettled,
-                            onContentUnderTopBarChange = { if (mode == targetMode) onContentUnderTopBarChange(it) },
+                            onRenderedCardCountChanged = { onRenderedCardCountChanged(HomeMode.Week, it) },
+                            onContentUnderTopBarChange = reportContentUnderTopBar,
                             style = weekViewStyle,
                             weekEditMode = weekEditMode,
                             onEnterWeekEditMode = { weekEditMode = true },
@@ -1343,25 +1367,26 @@ internal fun weekCourseBuckets(
 ): WeekCourseBuckets {
     if (config.scheduleAdjustmentsJson.isBlank()) return weekCourseBuckets(courses, week)
     val start = scheduleWeekStartDate(config, week, today)
-    val adjustments = com.xiaomanjun.sleepdownschedule.domain.schedule.decodeScheduleAdjustments(config.scheduleAdjustmentsJson).associateBy { it.date }
-    val regular = coursesVisibleInWeek(courses, week)
+    val regular = coursesVisibleInWeek(courses, week).groupBy { it.weekday }
+    val sourceWeeks = mutableMapOf(week to regular)
     val cancelled = mutableSetOf<Int>()
     val makeup = mutableSetOf<Int>()
     val visible = (1..7).flatMap { weekday ->
-        val adjustment = adjustments[start.plusDays((weekday - 1).toLong()).toString()]
+        val adjustment = com.xiaomanjun.sleepdownschedule.domain.schedule.scheduleAdjustmentForDate(config, start.plusDays((weekday - 1).toLong()))
         if (adjustment == null) {
-            regular.filter { it.weekday == weekday }
+            regular[weekday].orEmpty()
         } else if (adjustment.sourceDate == null) {
             // The day is off. Keep the regular cards so the timetable still shows what was planned,
             // and let the views grey them out while editing still resolves the original course.
             cancelled += weekday
-            regular.filter { it.weekday == weekday }
+            regular[weekday].orEmpty()
         } else {
             makeup += weekday
             val origin = LocalDate.parse(adjustment.sourceDate)
             val originWeek = com.xiaomanjun.sleepdownschedule.domain.schedule.adjustedTeachingWeekForDate(config, origin, today)
-            if (originWeek == null) emptyList() else coursesVisibleInWeek(courses, originWeek)
-                .filter { it.weekday == origin.dayOfWeek.value }.map { it.copy(weekday = weekday) }
+            if (originWeek == null) emptyList() else sourceWeeks.getOrPut(originWeek) {
+                coursesVisibleInWeek(courses, originWeek).groupBy { it.weekday }
+            }[origin.dayOfWeek.value].orEmpty().map { it.copy(weekday = weekday) }
         }
     }
     return WeekCourseBuckets(
@@ -1599,6 +1624,7 @@ internal fun DayScheduleScreen(
     dayAgentBackdrop: Backdrop? = backdrop,
     onSwipeDay: (Int) -> Unit,
     onContentUnderTopBarChange: (Boolean) -> Unit,
+    onRenderedCardCountChanged: (Int) -> Unit = {},
     dayAgentBackgroundMotionState: DayAgentBackgroundMotionState,
     onAgentPagerSettledChange: (Boolean) -> Unit,
     onAgentPrepareOpen: suspend () -> Unit,
@@ -1626,14 +1652,15 @@ internal fun DayScheduleScreen(
     }
 
     val paneVisible = LocalHomePaneVisible.current
+    val currentPagerSettledChange by rememberUpdatedState(onAgentPagerSettledChange)
     LaunchedEffect(pagerState, displayDate, paneVisible) {
         snapshotFlow {
-            paneVisible && !pagerState.isScrollInProgress &&
+            paneVisible.value && !pagerState.isScrollInProgress &&
                 pagerState.currentPage == pagerState.settledPage &&
                 kotlin.math.abs(pagerState.currentPageOffsetFraction) < 0.0005f &&
                 dateForPage(pagerState.settledPage) == displayDate
         }.distinctUntilChanged().collect {
-            onAgentPagerSettledChange(it)
+            currentPagerSettledChange(it)
         }
     }
     DisposableEffect(Unit) {
@@ -1695,7 +1722,7 @@ internal fun DayScheduleScreen(
         key = { it }
     ) { page ->
         HomeDayPageDrawingScope(pagerState, page) {
-            val targetDate = dateForPage(page)
+            val targetDate = remember(anchorDate, page) { dateForPage(page) }
             val targetAdjustment = remember(state.config.scheduleAdjustmentsJson, targetDate) {
                 com.xiaomanjun.sleepdownschedule.domain.schedule.scheduleAdjustmentForDate(state.config, targetDate)
             }
@@ -1722,14 +1749,17 @@ internal fun DayScheduleScreen(
             }
             val backgroundFrozen = LocalHomeBackgroundFrozen.current
             val dayLifecycleOwner = LocalLifecycleOwner.current
-            val minuteClock by produceState(initialValue = LocalDateTime.now(), page, backgroundFrozen, dayLifecycleOwner) {
-                if (backgroundFrozen) return@produceState
-                dayLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    value = LocalDateTime.now()
-                    while (true) {
-                        val nowMillis = System.currentTimeMillis()
-                        delay((60_000L - nowMillis % 60_000L + 100L).coerceAtLeast(1_000L))
-                        value = LocalDateTime.now()
+            val minuteClock by produceState(initialValue = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES), page, backgroundFrozen, dayLifecycleOwner) {
+                // Observe freeze in the clock coroutine, not the entire lazy page. Resuming
+                // within the same minute must not rebuild all day cards with new nanoseconds.
+                snapshotFlow { backgroundFrozen.value }.collectLatest { frozen ->
+                    if (!frozen) dayLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        value = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES)
+                        while (true) {
+                            val nowMillis = System.currentTimeMillis()
+                            delay((60_000L - nowMillis % 60_000L + 100L).coerceAtLeast(1_000L))
+                            value = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES)
+                        }
                     }
                 }
             }
@@ -1738,7 +1768,7 @@ internal fun DayScheduleScreen(
                 derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 }
             }
             val agentCollapsed by remember { mutableStateOf(false) }
-            LaunchedEffect(contentUnderTopBar) {
+            LaunchedEffect(contentUnderTopBar, pagerState.settledPage, onContentUnderTopBarChange) {
                 if (page == pagerState.settledPage) {
                     onContentUnderTopBarChange(contentUnderTopBar)
                 }
@@ -1778,7 +1808,7 @@ internal fun DayScheduleScreen(
                         backdrop = dayAgentBackdrop,
                         textColor = textColor,
                         collapsed = agentCollapsed,
-                        isActive = paneVisible && page == pagerState.settledPage,
+                        isActive = paneVisible.value && page == pagerState.settledPage,
                         backgroundMotionState = dayAgentBackgroundMotionState,
                         onPrepareOpen = onAgentPrepareOpen,
                         onAgentDismissed = onAgentDismissed,
@@ -1845,6 +1875,10 @@ internal fun DayScheduleScreen(
             val visibleSecondaryDate = secondaryDate?.takeIf {
                 shouldRenderSecondaryDay(displayDayCount, secondaryCourses)
             }
+            if (targetDate == displayDate) SideEffect {
+                onRenderedCardCountChanged(dayCourses.size +
+                    if (visibleSecondaryDate != null) secondaryCourses.size else 0)
+            }
             val courseList: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
                 if (dayCourses.isEmpty()) item(key = "primary-empty-$targetDate") {
                     HomeReadableText(if (isToday) "今天没有课程" else "这一天没有课程", color = textColor,
@@ -1866,7 +1900,7 @@ internal fun DayScheduleScreen(
                         }
                         CompositionLocalProvider(
                             LocalCourseTextMotionFrozen provides
-                                (listState.isScrollInProgress || pagerState.isScrollInProgress)
+                                rememberUpdatedState(listState.isScrollInProgress || pagerState.isScrollInProgress)
                         ) { DayTimelineCourse(
                             course,
                             targetWeek,
@@ -1917,7 +1951,7 @@ internal fun DayScheduleScreen(
                             }
                             CompositionLocalProvider(
                                 LocalCourseTextMotionFrozen provides
-                                    (listState.isScrollInProgress || pagerState.isScrollInProgress)
+                                    rememberUpdatedState(listState.isScrollInProgress || pagerState.isScrollInProgress)
                             ) { DayTimelineCourse(
                                 course = course,
                                 currentWeek = secondaryWeek,
@@ -2305,7 +2339,7 @@ fun CourseCard(course: CourseEntity, periods: List<PeriodEntity>, showTime: Bool
                 if (bounds != null && visible != null) flightRegistry?.captureSource(
                     bounds, visible,
                     CourseEditorDayAppearance(course, periods, showTime, showWeeks, tabletFontScale, muted,
-                        adjustmentLabel, cornerRadius = DayCourseCardCornerRadius)
+                        adjustmentLabel, cornerRadius = DayCourseCardCornerRadius, backdrop = backdrop)
                 )
                 onClick(bounds)
             }) else null

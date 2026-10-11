@@ -39,6 +39,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -150,32 +151,53 @@ import top.yukonga.miuix.kmp.basic.BasicComponent as MiuixBasicComponent
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 
 open class AiEduImportProgressActivityHost : ComponentActivity() {
+    private var displayedTaskId by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         @Suppress("DEPRECATION")
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         val app = application as CourseScheduleApp
-        val taskId = intent.getStringExtra(AiImportTaskManager.EXTRA_TASK_ID)
-        AiImportForegroundService.clearCompletion(this, taskId)
+        displayedTaskId = intent.getStringExtra(AiImportTaskManager.EXTRA_TASK_ID)
+        AiImportForegroundService.clearCompletion(this, displayedTaskId)
         setContent {
             val state by app.repository.state.collectAsStateWithLifecycle(AppState())
+            val activeProgress by AiEduImportProgressSession.progress.collectAsStateWithLifecycle()
+            val recoveredEntry by produceState<AiImportHistoryEntry?>(null, displayedTaskId, activeProgress?.taskId) {
+                value = if (!displayedTaskId.isNullOrBlank() && activeProgress?.taskId != displayedTaskId) {
+                    withContext(Dispatchers.IO) {
+                        AiImportHistoryStore.load(this@AiEduImportProgressActivityHost)
+                            .firstOrNull { it.context?.taskId == displayedTaskId }
+                    }
+                } else null
+            }
+            val recoveredDraft = remember(recoveredEntry, state.config) {
+                recoveredEntry?.let { AiImportHistoryStore.restore(it, state.config).getOrNull() }
+            }
             CourseScheduleTheme(config = state.config) {
+                androidx.compose.runtime.key(displayedTaskId) {
                 AiEduImportProgressPage(
                     config = state.config,
-                    taskId = taskId,
+                    taskId = displayedTaskId,
+                    historicalProgress = recoveredDraft?.let { historyConversationProgress(checkNotNull(recoveredEntry), it) },
+                    historicalDraft = recoveredDraft,
+                    historicalEntryId = recoveredEntry?.id,
                     onImportSubmitted = { returnToScheduleHome() },
                     onScreenModeRequested = {
                         finish()
                         AiEduImportProgressSession.useScreenMode()
                     },
                     onClose = {
-                        if (AiEduImportProgressSession.progress.value?.awaitingConfirmation == true) {
+                        if (AiEduImportProgressSession.progress.value?.let {
+                                it.awaitingConfirmation && (displayedTaskId.isNullOrBlank() || it.taskId == displayedTaskId)
+                            } == true) {
                             AiEduImportProgressSession.cancel()
                         }
                         finish()
                     }
                 )
+                }
             }
         }
     }
@@ -183,6 +205,7 @@ open class AiEduImportProgressActivityHost : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        displayedTaskId = intent.getStringExtra(AiImportTaskManager.EXTRA_TASK_ID)
         AiImportForegroundService.clearCompletion(
             this,
             intent.getStringExtra(AiImportTaskManager.EXTRA_TASK_ID)
@@ -237,10 +260,13 @@ internal fun AiEduImportProgressPage(
     hostConsumesImeResize: Boolean = false,
     onImportRequested: ((ImportDraft, Boolean) -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val observedSessionProgress by AiEduImportProgressSession.progress.collectAsStateWithLifecycle()
-    val sessionPreviewDraft by AiEduImportProgressSession.previewDraft.collectAsStateWithLifecycle()
     val historicalMode = historicalProgress != null && historicalDraft != null
-    var localProgress by remember(historicalProgress) { mutableStateOf(historicalProgress) }
+    var localProgress by remember(historicalProgress, historicalDraft) {
+        mutableStateOf(if (historicalProgress != null && historicalDraft != null)
+            ensureImportCheckpoint(historicalProgress, historicalDraft) else historicalProgress)
+    }
     var localPreviewDraft by remember(historicalDraft) { mutableStateOf(historicalDraft) }
     var ownedRevisionTaskId by androidx.compose.runtime.saveable.rememberSaveable(taskId, historicalEntryId) {
         mutableStateOf<String?>(null)
@@ -254,19 +280,37 @@ internal fun AiEduImportProgressPage(
     val current = ownedRevisionProgress ?: if (historicalMode) {
         checkNotNull(localProgress ?: historicalProgress)
     } else {
-        sessionProgress ?: AiEduImportProgress(steps = listOf("等待 AI 教务导入任务"))
+        sessionProgress ?: AiEduImportProgress(
+            finished = true,
+            liveSummary = "此任务已不在当前会话中。可从导入历史恢复已校验阶段，或重新选择材料开始。",
+            steps = listOf("等待选择导入任务")
+        )
+    }
+    val ownsLiveTask = ownedRevisionProgress != null || (!historicalMode && sessionProgress != null)
+    val selectedWorkspaceDraft = remember(current.checkpoints, current.selectedCheckpointId, current.taskId, config) {
+        current.checkpoints.firstOrNull { it.id == current.selectedCheckpointId && it.taskId == current.taskId }
+            ?.restore(config)?.getOrNull()
     }
     val previewDraft = if (ownedRevisionProgress != null) {
-        sessionPreviewDraft
+        selectedWorkspaceDraft
     } else if (historicalMode) {
         localPreviewDraft
     } else {
-        sessionPreviewDraft
+        selectedWorkspaceDraft.takeIf { sessionProgress != null }
     }
     fun updateProgress(next: AiEduImportProgress) {
         if (historicalMode) localProgress = next else AiEduImportProgressSession.update(next)
     }
+    var importSubmitting by remember(current.taskId) { mutableStateOf(false) }
     fun requestImport(draft: ImportDraft, createNewSchedule: Boolean) {
+        // Stop the same attempt before handing the immutable selection to existing confirmation.
+        // A notification for an old task must never import another task's preview.
+        if (!historicalMode && ownedRevisionProgress == null && sessionProgress == null) return
+        if (importSubmitting) return
+        importSubmitting = true
+        if (AiEduImportProgressSession.progress.value?.let { it.taskId == current.taskId && !it.finished } == true) {
+            AiImportTaskManager.pauseImport(context, current.taskId)
+        }
         onImportRequested?.invoke(draft, createNewSchedule)
             ?: AiEduImportProgressSession.requestFinalImport(draft, createNewSchedule)
         onImportSubmitted()
@@ -274,7 +318,7 @@ internal fun AiEduImportProgressPage(
     val listState = rememberLazyListState()
     val textColor = glassForegroundColor(settingsVisualConfig(config))
     val pageTitle = current.routeLabel.takeIf { it.isNotBlank() } ?: "AI 教务导入"
-    var executionExpanded by remember { mutableStateOf(!current.finished) }
+    var executionExpanded by remember { mutableStateOf(false) }
     var previewAttachment by remember { mutableStateOf<AiEduAttachmentPreviewRequest?>(null) }
     var previewSourceHidden by remember { mutableStateOf(false) }
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
@@ -309,7 +353,6 @@ internal fun AiEduImportProgressPage(
     var composerHeightPx by remember { mutableStateOf(0) }
     val runtimePickerState = rememberAiRuntimePickerState()
     var historySourceHidden by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val navigationBottomPx = WindowInsets.navigationBars.getBottom(density)
@@ -342,16 +385,53 @@ internal fun AiEduImportProgressPage(
         hostConsumesImeResize = hostConsumesImeResize
     )
     val conversationScope = rememberCoroutineScope()
+    fun persistWorkspace(previousDraft: ImportDraft?, next: AiEduImportProgress, draft: ImportDraft) {
+        (context.applicationContext as CourseScheduleApp).applicationScope.launch(Dispatchers.IO) {
+            if (historicalEntryId != null) AiImportHistoryStore.update(context, historicalEntryId, draft, next)
+            else AiImportHistoryStore.updateMatching(context, previousDraft ?: draft, draft, next)
+        }
+    }
+    fun selectCheckpoint(id: String): Result<Unit> = runCatching {
+        if (historicalMode && ownedRevisionProgress == null) {
+            val (next, draft) = selectImportCheckpoint(current, id, config).getOrThrow()
+            val branch = forkImportCheckpointHistory(next)
+            localProgress = branch
+            localPreviewDraft = draft
+            persistWorkspace(previewDraft, branch, draft)
+        } else {
+            val draft = AiEduImportProgressSession.selectCheckpoint(current.taskId, id).getOrThrow()
+            val next = AiEduImportProgressSession.progress.value?.takeIf { it.taskId == current.taskId }
+                ?: error("导入任务已切换")
+            persistWorkspace(previewDraft, next, draft)
+        }
+    }
+    fun saveCheckpointJson(id: String, json: String): Result<Unit> = runCatching {
+        if (historicalMode && ownedRevisionProgress == null) {
+            val (next, checkpoint) = editImportCheckpoint(current, id, json, config).getOrThrow()
+            val draft = checkpoint.restore(config).getOrThrow()
+            val branch = forkImportCheckpointHistory(next)
+            localProgress = branch
+            localPreviewDraft = draft
+            persistWorkspace(previewDraft, branch, draft)
+        } else {
+            val checkpoint = AiEduImportProgressSession.editCheckpointJson(current.taskId, id, json).getOrThrow()
+            // Do not let the model continue editing an obsolete workspace after a local change.
+            if (!current.finished) AiImportTaskManager.pauseImport(context, current.taskId)
+            val next = AiEduImportProgressSession.progress.value?.takeIf { it.taskId == current.taskId }
+                ?: error("导入任务已切换")
+            persistWorkspace(previewDraft, next, checkpoint.restore(config).getOrThrow())
+        }
+    }
     LaunchedEffect(
         historicalMode,
         ownedRevisionTaskId,
         ownedRevisionProgress?.finished,
-        sessionPreviewDraft
+        selectedWorkspaceDraft
     ) {
         val completed = ownedRevisionProgress
         if (historicalMode && completed?.finished == true) {
             localProgress = completed
-            sessionPreviewDraft?.let { localPreviewDraft = it }
+            selectedWorkspaceDraft?.let { localPreviewDraft = it }
             ownedRevisionTaskId = null
         }
     }
@@ -359,9 +439,16 @@ internal fun AiEduImportProgressPage(
         if (current.finished) {
             executionExpanded = false
             conversationSending = false
-            withFrameNanos { }
-            val last = listState.layoutInfo.totalItemsCount - 1
-            if (last >= 0) listState.animateScrollToItem(last)
+        }
+        // Enter every task at its latest result, including an already running task.
+        withFrameNanos { }
+        val last = listState.layoutInfo.totalItemsCount - 1
+        if (last >= 0) {
+            listState.scrollToItem(last)
+            val layout = listState.layoutInfo
+            layout.visibleItemsInfo.lastOrNull()?.let { item ->
+                listState.scrollBy((item.offset + item.size + layout.afterContentPadding - layout.viewportEndOffset).coerceAtLeast(0).toFloat())
+            }
         }
     }
     BackHandler(enabled = current.awaitingConfirmation) {
@@ -495,6 +582,11 @@ internal fun AiEduImportProgressPage(
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                current.conversationTurns.forEachIndexed { index, turn ->
+                    item(key = "conversation-turn-$index") {
+                        AiEduConversationTurnSummary(turn, index + 1, textColor)
+                    }
+                }
                 item {
                     AiEduUserMessage(
                         progress = current,
@@ -505,24 +597,15 @@ internal fun AiEduImportProgressPage(
                         onPreview = { previewAttachment = it }
                     )
                 }
-                current.conversationTurns.forEachIndexed { index, turn ->
-                    item(key = "conversation-turn-${index}-${turn.userPrompt.hashCode()}") {
-                        AiEduConversationTurnSummary(
-                            turn = turn,
-                            index = index + 1,
-                            textColor = textColor
-                        )
-                    }
-                }
-                val summary = current.reasoningOutput.ifBlank {
-                    current.liveSummary.takeIf { current.finished || current.awaitingConfirmation }.orEmpty()
-                }
+                val summary = if (current.finished || current.awaitingConfirmation) current.reasoningOutput.ifBlank {
+                    current.liveSummary
+                } else ""
                 val completedWithPreview = current.finished && current.error == null && previewDraft != null && !current.awaitingUserInput
                 if (completedWithPreview) item(key = "finished-process") {
-                    AiEduModelSummary(summary, textColor, title = "处理过程") {
+                    AiEduModelSummary(if (executionExpanded) summary else "", textColor, title = "处理过程") {
                         AgentRunTrace(
-                            statuses = aiEduAgentRunStatuses(current), expanded = true,
-                            foreground = textColor, active = false, onToggle = {}
+                            statuses = aiEduAgentRunStatuses(current), expanded = executionExpanded,
+                            foreground = textColor, active = false, onToggle = { executionExpanded = !executionExpanded }
                         )
                     }
                 }
@@ -558,10 +641,24 @@ internal fun AiEduImportProgressPage(
                         )
                     }
                 }
-                if (current.requestSent && !current.finished && current.error == null && !current.awaitingConfirmation) {
+                if (!current.awaitingConfirmation && current.activityReports.isNotEmpty()) {
+                    item(key = "live-activity-reports") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            current.activityReports.takeLast(if (executionExpanded) 12 else 3).forEach { report ->
+                                Text(
+                                    "${if (report.kind == AiImportReportKind.MODEL) "AI" else "操作"} · ${report.text}",
+                                    color = textColor.copy(alpha = if (report.kind == AiImportReportKind.MODEL) 0.9f else 0.62f),
+                                    style = if (report.kind == AiImportReportKind.MODEL) MaterialTheme.typography.bodyMedium
+                                        else MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+                }
+                if (!current.finished && current.error == null && !current.awaitingConfirmation && current.taskId.isNotBlank()) {
                     item(key = "live-model-reasoning") {
                         AiImportReasoningPanel(taskId = current.taskId, textColor = textColor,
-                            listState = listState)
+                            summary = current.liveSummary)
                     }
                 }
                 if (current.awaitingUserInput) item(key = "model-questions") {
@@ -573,8 +670,15 @@ internal fun AiEduImportProgressPage(
                         }
                     }
                 }
-                previewDraft?.takeIf { current.finished && !current.awaitingUserInput && current.error == null }?.let { draft ->
+                if (current.checkpoints.isNotEmpty()) item(key = "checkpoint-workspace") {
+                    AiImportCheckpointPanel(current, textColor, config, backdrop, ::selectCheckpoint, ::saveCheckpointJson)
+                }
+                previewDraft?.takeIf { !current.awaitingConfirmation }?.let { draft ->
                     item {
+                        if (current.assistantMessage.isNotBlank()) {
+                            AgentMarkdownText(current.assistantMessage, textColor, MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(12.dp))
+                        }
                         AiEduInlineImportPreview(
                             draft = draft,
                             textColor = textColor,
@@ -594,7 +698,7 @@ internal fun AiEduImportProgressPage(
                 AiEduConversationComposer(
                     value = conversationInput,
                     sending = conversationSending || (!current.finished && !current.awaitingConfirmation),
-                    canInterrupt = AiImportTaskManager.canInterrupt(current.taskId),
+                    canInterrupt = ownsLiveTask && AiImportTaskManager.canInterrupt(current.taskId),
                     awaitingUserInput = current.awaitingUserInput,
                     onStop = { AiImportTaskManager.pauseImport(context, current.taskId) },
                     config = config,
@@ -616,7 +720,7 @@ internal fun AiEduImportProgressPage(
                             conversationInput = ""
                             updateProgress(current.copy(userPrompt = prompt))
                             AiEduImportProgressSession.confirm()
-                        } else if (AiImportTaskManager.canInterrupt(current.taskId)) {
+                        } else if (ownsLiveTask && AiImportTaskManager.canInterrupt(current.taskId)) {
                             ownedRevisionTaskId = AiImportTaskManager.continueImport(context, current.taskId, prompt)
                             if (ownedRevisionTaskId != null) conversationInput = ""
                         } else {
@@ -676,18 +780,19 @@ private fun AiEduConversationTurnSummary(
     index: Int,
     textColor: Color
 ) {
-    val summary = turn.reasoningOutput.ifBlank { "模型已完成这一轮修改。" }
+    var expanded by remember(turn) { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedRectangle(16.dp))
-            .background(textColor.copy(alpha = 0.055f))
             .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text("第 $index 轮修改", color = textColor.copy(alpha = 0.64f), style = MaterialTheme.typography.labelMedium)
-        Text(turn.userPrompt, color = textColor, style = MaterialTheme.typography.bodyMedium, maxLines = 3)
-        AiEduModelSummary(summary, textColor)
+        Text("第 $index 轮 · ${turn.status}${if (expanded) " · 收起" else " · 展开"}",
+            modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 8.dp),
+            color = textColor.copy(alpha = 0.64f), style = MaterialTheme.typography.labelMedium)
+        AgentMarkdownText(turn.userPrompt, textColor, MaterialTheme.typography.bodyMedium)
+        if (expanded && turn.reasoningOutput.isNotBlank()) AiEduModelSummary(turn.reasoningOutput, textColor)
+        if (turn.assistantMessage.isNotBlank()) AgentMarkdownText(turn.assistantMessage, textColor, MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -696,27 +801,15 @@ private fun AiEduModelSummary(
     summary: String, textColor: Color, title: String = "模型摘要",
     details: (@Composable () -> Unit)? = null
 ) {
-    var expanded by androidx.compose.runtime.saveable.rememberSaveable(summary) { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(title, color = textColor.copy(alpha = 0.58f), style = MaterialTheme.typography.labelMedium)
-            Text(if (expanded) "收起" else "展开", color = textColor.copy(alpha = 0.58f), style = MaterialTheme.typography.labelMedium)
-        }
-        androidx.compose.animation.AnimatedVisibility(expanded) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (summary.isNotBlank()) Text(summary, color = textColor.copy(alpha = 0.86f), style = MaterialTheme.typography.bodyMedium)
-                details?.invoke()
-            }
-        }
+        Text(title, modifier = Modifier.padding(vertical = 8.dp), color = textColor.copy(alpha = 0.58f), style = MaterialTheme.typography.labelMedium)
+        if (summary.isNotBlank()) AgentMarkdownText(summary, textColor.copy(alpha = 0.86f), MaterialTheme.typography.bodyMedium)
+        details?.invoke()
     }
 }
 
@@ -1422,6 +1515,9 @@ private fun AiEduInlineImportPreview(
         )
         draft.courses.forEach { course ->
             ImportPreviewCourseCard(course, draft.periods, draft.config)
+        }
+        remember(draft) { importConflictNotice(draft) }?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
         Text(
             "如果内容不对，直接在下方告诉 AI 怎么修改。确认导入后会打开该课表，并引导你设置开学周。",

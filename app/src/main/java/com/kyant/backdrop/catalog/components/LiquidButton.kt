@@ -89,6 +89,7 @@ fun LiquidButton(
     pressSnapshot: LiquidButtonPressSnapshot? = null,
     sharedInteractiveHighlight: InteractiveHighlight? = null,
     interactionEnabledAt: (size: Size, offset: Offset) -> Boolean = { _, _ -> true },
+    flatOpacity: Float? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     val animationScope = rememberCoroutineScope()
@@ -205,6 +206,8 @@ fun LiquidButton(
                     null
                 },
                 onDrawSurface = buttonOnDrawSurface,
+                fallbackColor = surfaceColor.takeIf { it.isSpecified } ?: tint.takeIf { it.isSpecified },
+                fallbackOpacity = flatOpacity,
                 clipToBounds = clipToBounds,
                 renderEnabled = { surfaceEnabled }
             )
