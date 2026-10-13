@@ -2,6 +2,8 @@
 
 本框架提供主应用的“凝光视效”可选材质，实现位于 `platform/coloros/`。`app/ui/ProvideVisualEffects` 读取偏好和运行时能力，通过 `ProvideColorOsMaterials` 接入公共控件。默认保留液态玻璃；GitHub 渠道、ColorOS 17 及以上且 COUI 能力探测成功时开放凝光选项。课程管理 Activity 的类名保留，避免改变 Manifest、Intent 和转场路由。
 
+模式选择位于“通用设置 → 外观”。凝光生效时隐藏液态玻璃调整入口，旧页面恢复时也不创建预览与滑条；切回液态玻璃后恢复入口和已保存的模糊参数。超级性能模式仍隐藏玻璃调整，但不阻止可用设备切换视效模式。
+
 ## 装配和边界
 
 - `MainActivity.kt` 的公共 `CourseScheduleTheme` 安装框架；`ControlMaterialRenderers` 统一提供 Dialog、Button、Card、Surface、值控件和菜单渲染能力，`HomeMaterialControls` 提供 Dock、图标按钮、搜索和命名弹窗入口。业务页面不引用厂商实现，厂商实现不引用 `app` / `feature`。

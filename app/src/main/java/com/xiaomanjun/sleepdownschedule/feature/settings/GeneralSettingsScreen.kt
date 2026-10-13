@@ -20,6 +20,7 @@ import com.xiaomanjun.sleepdownschedule.core.identity.AppDistribution
 import com.xiaomanjun.sleepdownschedule.core.identity.AppIconManager
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.DockScrollPadding
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownSecondaryPageList
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects
 import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.detailContentTopPadding
 import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsVisualConfig
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceSection
@@ -32,6 +33,7 @@ import com.xiaomanjun.sleepdownschedule.feature.home.day.DayViewPreferences
 import com.xiaomanjun.sleepdownschedule.feature.home.week.WeekViewPreferences
 import com.xiaomanjun.sleepdownschedule.feature.update.GiteeAppUpdater
 import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
+import com.xiaomanjun.sleepdownschedule.model.VisualEffectMode
 import com.xiaomanjun.sleepdownschedule.withGeneralSettingsFrom
 
 @Composable
@@ -47,6 +49,7 @@ fun GeneralSettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val topPadding = detailContentTopPadding()
+    val effects = LocalVisualEffects.current
     var draft by remember(state.config.id) { mutableStateOf(state.config) }
     var hasLocalEdits by remember(state.config.id) { mutableStateOf(false) }
     var dayViewMode by remember(context, state.config.id) {
@@ -121,6 +124,20 @@ fun GeneralSettingsScreen(
                             applyChange(draft.copy(followSystemDarkMode = it, darkMode = effectiveDarkMode))
                         }
                     )
+                    if (effects.colorOsAvailable) {
+                        SettingsDivider()
+                        SleepDownLiquidDropdownPreference(
+                            title = "视效模式",
+                            summary = if (effects.usesNativeControls) "使用 ColorOS 17 系统控件与凝光材质" else "使用液态玻璃材质",
+                            items = listOf(VisualEffectMode.LiquidGlass.label, VisualEffectMode.ColorOsGlow.label),
+                            selectedIndex = if (effects.usesNativeControls) 1 else 0,
+                            backdrop = backdrop,
+                            config = visualConfig,
+                            onSelectedIndexChange = { index ->
+                                effects.selectMode(if (index == 1) VisualEffectMode.ColorOsGlow else VisualEffectMode.LiquidGlass)
+                            }
+                        )
+                    }
                     SettingsDivider()
                     SleepDownLiquidDropdownPreference(
                         title = "材质分级",
@@ -138,12 +155,12 @@ fun GeneralSettingsScreen(
                             )
                         }
                     )
-                    if (!com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance ||
-                        com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects.current.colorOsAvailable) {
+                    if (!effects.usesNativeControls &&
+                        !com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance) {
                         SettingsDivider()
                         SettingsNavigationRow(
                             title = "视效设置",
-                            subtitle = "选择视效模式并调整玻璃效果",
+                            subtitle = "调整液态玻璃效果",
                             onClick = onOpenLiquidGlass
                         )
                     }
