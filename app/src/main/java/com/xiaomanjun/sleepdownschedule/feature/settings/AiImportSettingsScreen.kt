@@ -1,16 +1,12 @@
 package com.xiaomanjun.sleepdownschedule.feature.settings
 
-import com.xiaomanjun.sleepdownschedule.R
-import android.content.Context
 import android.net.Uri
-import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField as MaterialOutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -41,50 +36,50 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
 import com.kyant.shapes.RoundedRectangle
-import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.AppState
+import com.xiaomanjun.sleepdownschedule.R
+import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.app.config.SleepDownRemoteConfig
-import com.xiaomanjun.sleepdownschedule.app.ui.*
-import com.xiaomanjun.sleepdownschedule.core.identity.AppDistribution
-import com.xiaomanjun.sleepdownschedule.core.identity.AppIconManager
-import com.xiaomanjun.sleepdownschedule.core.identity.AppIconMode
-import com.xiaomanjun.sleepdownschedule.core.identity.AppIconStyle
-import com.xiaomanjun.sleepdownschedule.core.remoteconfig.*
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.DockScrollPadding
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.DialogLiquidButton
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertAction
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertActionStyle
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertDialog
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownSecondaryPageList
 import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.detailContentTopPadding
 import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsPageBackground
-import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsVisualConfig
-import com.xiaomanjun.sleepdownschedule.core.ui.settings.*
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceSection
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsActionButton
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsActionRow
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDivider
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsGroup
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsInfoRow
-import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsNavigationRow
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsTextFieldRow
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsToggleRow
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-import com.xiaomanjun.sleepdownschedule.feature.home.day.*
-import com.xiaomanjun.sleepdownschedule.feature.home.week.*
-import com.xiaomanjun.sleepdownschedule.feature.importing.*
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SleepDownLiquidDropdownPreference
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiEndpointStyle
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiImportSettings
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiImportSettingsStore
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiModelOption
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiProviderPresets
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiProviderProfile
+import com.xiaomanjun.sleepdownschedule.feature.importing.AiReasoningEffort
+import com.xiaomanjun.sleepdownschedule.feature.importing.StructuredOutputMode
+import com.xiaomanjun.sleepdownschedule.feature.importing.chatGptReasoningEffort
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager
-import com.xiaomanjun.sleepdownschedule.feature.schedule.picker.*
-import com.xiaomanjun.sleepdownschedule.feature.update.GiteeAppUpdater
+import com.xiaomanjun.sleepdownschedule.feature.importing.customProviderDraftHasContent
+import com.xiaomanjun.sleepdownschedule.feature.importing.normalizeAiBaseUrlForProvider
+import com.xiaomanjun.sleepdownschedule.feature.importing.testAiProviderConnection
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
 import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
-import com.xiaomanjun.sleepdownschedule.glass.ui.*
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.CancellationException
@@ -92,242 +87,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-@Composable
-fun GeneralSettingsScreen(
-    state: AppState,
-    backdrop: Backdrop?,
-    onUpdateConfig: (ScheduleConfigEntity) -> Unit,
-    onOpenLiquidGlass: () -> Unit = {},
-    exitCommitRequest: Int = 0,
-    onExitCommitFinished: (Boolean) -> Unit = {},
-    onCommitAndExit: ((ScheduleConfigEntity, (Boolean) -> Unit) -> Unit)? = null
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val topPadding = detailContentTopPadding()
-    var draft by remember(state.config.id) { mutableStateOf(state.config) }
-    var hasLocalEdits by remember(state.config.id) { mutableStateOf(false) }
-    var dayViewMode by remember(context, state.config.id) {
-        mutableStateOf(
-            DayViewPreferences.mode(
-                context = context,
-                legacyTwoDay = state.config.defaultHomeMode == HomeStartMode.TWO_DAY
-            )
-        )
-    }
-    var weekViewStyle by remember(context, state.config.id) {
-        mutableStateOf(WeekViewPreferences.style(context))
-    }
-    var parallelNavigation by remember(context) {
-        mutableStateOf(com.xiaomanjun.sleepdownschedule.feature.home.HomeNavigationPreferences.isParallel(context))
-    }
-    var appIconMode by remember(context) {
-        mutableStateOf(AppIconManager.currentMode(context))
-    }
-    var appIconStyle by remember(context) {
-        mutableStateOf(AppIconManager.currentStyle(context))
-    }
-    var includeBetaUpdates by remember(context) { mutableStateOf(GiteeAppUpdater.includesBeta(context)) }
-    LaunchedEffect(state.config) {
-        if (hasLocalEdits) {
-            val rebased = state.config.withGeneralSettingsFrom(draft)
-            draft = rebased
-            if (rebased == state.config) hasLocalEdits = false
-        } else {
-            draft = state.config
-        }
-    }
-    val visualConfig = settingsVisualConfig(draft)
-    fun applyChange(next: ScheduleConfigEntity) {
-        draft = next
-        hasLocalEdits = true
-        onUpdateConfig(state.config.withGeneralSettingsFrom(next))
-    }
-    LaunchedEffect(exitCommitRequest) {
-        if (exitCommitRequest > 0) {
-            // Rebase the latest local taps onto the newest database row. This keeps a stale
-            // eager-save emission from rolling the UI back and preserves settings owned by
-            // other pages (for example notification options).
-            val latestDraft = state.config.withGeneralSettingsFrom(draft)
-            if (onCommitAndExit != null) {
-                onCommitAndExit(latestDraft, onExitCommitFinished)
-            } else {
-                if (hasLocalEdits) onUpdateConfig(latestDraft)
-                onExitCommitFinished(true)
-            }
-        }
-    }
-    SleepDownSecondaryPageList(
-        contentTopPadding = topPadding,
-        contentBottomPadding = DockScrollPadding
-    ) {
-        item(key = "general-appearance") {
-            GlassPreferenceSection("外观") {
-                SettingsGroup(backdrop = backdrop, config = visualConfig, modifier = Modifier.fillMaxWidth()) {
-                    val effectiveDarkMode = appUsesDarkTheme(draft)
-                    SettingsThemeModeOptions(
-                        darkMode = effectiveDarkMode,
-                        defaultHomeMode = draft.defaultHomeMode,
-                        onSelected = { applyChange(draft.copy(darkMode = it, followSystemDarkMode = false)) }
-                    )
-                    SettingsToggleRow(
-                        title = "跟随系统",
-                        subtitle = "",
-                        checked = draft.followSystemDarkMode,
-                        backdrop = backdrop,
-                        onCheckedChange = {
-                            applyChange(draft.copy(followSystemDarkMode = it, darkMode = effectiveDarkMode))
-                        }
-                    )
-                    SettingsDivider()
-                    SleepDownLiquidDropdownPreference(
-                        title = "材质分级",
-                        summary = when (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.level) {
-                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.QUALITY -> "提供完整的液态玻璃和光感视效"
-                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.PERFORMANCE -> "提供部分液态玻璃和光感视效"
-                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.SUPER_PERFORMANCE -> "不提供任何液态玻璃和光感视效"
-                        },
-                        items = listOf("质感", "性能", "超级性能"),
-                        selectedIndex = com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.level.ordinal,
-                        backdrop = backdrop, config = visualConfig,
-                        onSelectedIndexChange = {
-                            com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.setLevel(
-                                context, com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialLevel.entries[it]
-                            )
-                        }
-                    )
-                    if (!com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance ||
-                        com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects.current.colorOsAvailable) {
-                        SettingsDivider()
-                        SettingsNavigationRow(
-                            title = "视效设置",
-                            subtitle = "选择视效模式并调整玻璃效果",
-                            onClick = onOpenLiquidGlass
-                        )
-                    }
-                    SettingsDivider()
-                    SettingsAppIconStyleRow(
-                        selected = appIconStyle,
-                        backdrop = backdrop,
-                        config = visualConfig,
-                        onSelected = { style ->
-                            appIconStyle = style
-                            AppIconManager.setStyle(context, style)
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsAppIconModeRow(
-                        selected = appIconMode,
-                        backdrop = backdrop,
-                        config = visualConfig,
-                        onSelected = { mode ->
-                            appIconMode = mode
-                            AppIconManager.setMode(context, mode)
-                        }
-                    )
-                }
-            }
-        }
-        item(key = "general-navigation-layout") {
-            GlassPreferenceSection("导航与布局") {
-                SettingsGroup(backdrop = backdrop, config = visualConfig, modifier = Modifier.fillMaxWidth()) {
-                    SleepDownLiquidDropdownPreference(
-                        title = "导航模式",
-                        summary = "手机竖屏下的底栏布局",
-                        items = listOf("普通模式", "并列模式"),
-                        selectedIndex = if (parallelNavigation) 1 else 0,
-                        backdrop = backdrop, config = visualConfig,
-                        onSelectedIndexChange = {
-                            parallelNavigation = it == 1
-                            com.xiaomanjun.sleepdownschedule.feature.home.HomeNavigationPreferences.setParallel(context, it == 1)
-                        }
-                    )
-                    if (!parallelNavigation) {
-                        SettingsDivider()
-                        SettingsDockAlignmentRow(
-                            selected = draft.dockAlignment,
-                            backdrop = backdrop,
-                            config = visualConfig,
-                            onSelected = { applyChange(draft.copy(dockAlignment = it)) }
-                        )
-                    }
-                    SettingsDivider()
-                    SettingsHomeStartModeRow(
-                        selected = draft.defaultHomeMode,
-                        backdrop = backdrop,
-                        config = visualConfig,
-                        onSelected = { applyChange(draft.copy(defaultHomeMode = it)) }
-                    )
-                    SettingsDivider()
-                    SettingsDayViewModeRow(
-                        selected = dayViewMode,
-                        backdrop = backdrop,
-                        config = visualConfig,
-                        onSelected = { mode ->
-                            dayViewMode = mode
-                            DayViewPreferences.setMode(context, mode)
-                            if (draft.defaultHomeMode == HomeStartMode.TWO_DAY) {
-                                applyChange(draft.copy(defaultHomeMode = HomeStartMode.DAY))
-                            }
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsWeekViewStyleRow(
-                        selected = weekViewStyle,
-                        backdrop = backdrop,
-                        config = visualConfig,
-                        onSelected = { style ->
-                            weekViewStyle = style
-                            WeekViewPreferences.setStyle(context, style)
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsDefaultWallpaperRow(
-                        selected = draft.defaultWallpaperStyle,
-                        backdrop = backdrop,
-                        config = visualConfig,
-                        onSelected = { applyChange(draft.copy(defaultWallpaperStyle = it)) }
-                    )
-                }
-            }
-        }
-        item(key = "general-system-behavior") {
-            GlassPreferenceSection("系统行为") {
-                SettingsGroup(backdrop = backdrop, config = visualConfig, modifier = Modifier.fillMaxWidth()) {
-                SettingsToggleRow(
-                    title = "隐藏后台卡片",
-                    subtitle = "以任意方式离开应用后，都从最近任务列表中隐藏本应用",
-                    checked = draft.hideFromRecents,
-                    backdrop = backdrop,
-                    onCheckedChange = { applyChange(draft.copy(hideFromRecents = it)) }
-                )
-                if (AppDistribution.supportsSelfUpdate) {
-                    SettingsDivider()
-                    SettingsToggleRow(
-                        title = "自动检查更新",
-                        subtitle = "每天首次打开应用时检查 Gitee 上的新版本",
-                        checked = draft.autoCheckUpdates,
-                        backdrop = backdrop,
-                        onCheckedChange = { applyChange(draft.copy(autoCheckUpdates = it)) }
-                    )
-                    SettingsDivider()
-                    SettingsToggleRow(
-                        title = "接收 Beta 版更新",
-                        subtitle = if (includeBetaUpdates) "更新渠道：正式版与 Beta 版；同版本正式版发布后也会提示"
-                            else "更新渠道：仅正式版；开启后可提前体验 Beta 版",
-                        checked = includeBetaUpdates,
-                        backdrop = backdrop,
-                        onCheckedChange = {
-                            includeBetaUpdates = it
-                            GiteeAppUpdater.setIncludesBeta(context, it)
-                        }
-                    )
-                }
-                }
-            }
-        }
-    }
-}
 @Composable
 fun AiImportSettingsScreen(
     state: AppState,
@@ -341,225 +100,6 @@ fun AiImportSettingsScreen(
         exitCommitRequest = exitCommitRequest,
         onExitCommitFinished = onExitCommitFinished
     )
-}
-
-@Composable
-fun DayAgentSettingsScreen(state: AppState, backdrop: Backdrop?) {
-    val context = LocalContext.current
-    var enabled by remember { mutableStateOf(DayAgentPreferences.isEnabled(context)) }
-    var weekAssistantEnabled by remember { mutableStateOf(DayAgentPreferences.isWeekAssistantEnabled(context)) }
-    var weatherEnabled by remember { mutableStateOf(DayAgentPreferences.isWeatherEnabled(context)) }
-    var memoryEnabled by remember { mutableStateOf(DayAgentPreferences.isMemoryEnabled(context)) }
-    var memoryText by remember { mutableStateOf(DayAgentPreferences.memory(context)) }
-    var memoryDraft by remember { mutableStateOf(memoryText) }
-    var showMemoryEditor by remember { mutableStateOf(false) }
-    var historyRetentionDays by remember { mutableIntStateOf(AiImportHistoryStore.retentionDays(context)) }
-    var historyMessage by remember { mutableStateOf<String?>(null) }
-    val popupBackdrop = LocalSettingsPopupBackdrop.current ?: backdrop
-    val topPadding = detailContentTopPadding()
-
-    SleepDownSecondaryPageList(
-        contentTopPadding = topPadding,
-        contentBottomPadding = DockScrollPadding
-    ) {
-        item {
-            GlassPreferenceSection("AI 助理") {
-                SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
-                    SettingsInfoRow(
-                        "AI 助理",
-                        "日视图展示今日安排；周视图下拉进入对话，在课前与开始时提醒；两个入口共享消息记录"
-                    )
-                    SettingsDivider()
-                    SettingsToggleRow(
-                        title = "启用 AI 助理",
-                        subtitle = "显示课程、空档、天气与问答入口",
-                        checked = enabled,
-                        backdrop = backdrop,
-                        onCheckedChange = {
-                            enabled = it
-                            DayAgentPreferences.setEnabled(context, it)
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsToggleRow(
-                        title = "周视图 AI 助理",
-                        subtitle = "启用首页下拉对话与课程节点提醒",
-                        checked = weekAssistantEnabled,
-                        backdrop = backdrop,
-                        enabled = enabled,
-                        onCheckedChange = {
-                            weekAssistantEnabled = it
-                            DayAgentPreferences.setWeekAssistantEnabled(context, it)
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsToggleRow(
-                        title = "天气提醒",
-                        subtitle = "使用设备粗略位置查询天气",
-                        checked = weatherEnabled,
-                        backdrop = backdrop,
-                        enabled = enabled,
-                        onCheckedChange = {
-                            weatherEnabled = it
-                            DayAgentPreferences.saveOptions(
-                                context,
-                                DayAgentPreferences.isDailyAiEnabled(context),
-                                it
-                            )
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsToggleRow(
-                        title = "助手记忆",
-                        subtitle = "跨天记住你明确表达的长期偏好与背景",
-                        checked = memoryEnabled,
-                        backdrop = backdrop,
-                        onCheckedChange = {
-                            memoryEnabled = it
-                            DayAgentPreferences.setMemoryEnabled(context, it)
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsNavigationRow(
-                        title = "查看与编辑记忆",
-                        subtitle = memoryText
-                            .lineSequence()
-                            .firstOrNull { it.isNotBlank() }
-                            ?.take(42)
-                            ?: "当前没有已保存的记忆",
-                        badgeText = if (memoryEnabled) "已启用" else "已关闭",
-                        onClick = {
-                            memoryDraft = DayAgentPreferences.memory(context)
-                            showMemoryEditor = true
-                        }
-                    )
-                }
-            }
-        }
-        item {
-            GlassPreferenceSection("导入历史") {
-                SettingsGroup(backdrop = backdrop, config = state.config, modifier = Modifier.fillMaxWidth()) {
-                    SleepDownLiquidDropdownPreference(
-                        items = listOf("7 天后", "30 天后", "90 天后", "手动删除"),
-                        selectedIndex = AiImportHistoryStore.retentionOptions.indexOf(historyRetentionDays).coerceAtLeast(1),
-                        title = "自动清理导入历史",
-                        backdrop = backdrop,
-                        config = state.config,
-                        modifier = Modifier.fillMaxWidth(),
-                        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                        maxHeight = 260.dp,
-                        onExpandedChange = {},
-                        onSelectedIndexChange = { index ->
-                            historyRetentionDays = AiImportHistoryStore.retentionOptions[
-                                index.coerceIn(AiImportHistoryStore.retentionOptions.indices)
-                            ]
-                            AiImportHistoryStore.setRetentionDays(context, historyRetentionDays)
-                            historyMessage = if (historyRetentionDays == 0) {
-                                "导入历史将由你手动删除"
-                            } else {
-                                "导入历史将在 $historyRetentionDays 天后自动删除"
-                            }
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsActionRow(
-                        title = "清空导入历史",
-                        subtitle = "删除本机保存的最近导入上下文，不影响已经导入的课表",
-                        buttonText = "清空",
-                        iconRes = R.drawable.ic_delete_history,
-                        backdrop = backdrop,
-                        destructive = true,
-                        onClick = {
-                            AiImportHistoryStore.clear(context)
-                            historyMessage = "导入历史已清空"
-                        }
-                    )
-                    historyMessage?.let {
-                        SettingsDivider()
-                        Text(
-                            it,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    SleepDownPickerDialog(
-        show = showMemoryEditor,
-        title = "助手记忆",
-        onDismissRequest = { showMemoryEditor = false },
-        backdrop = popupBackdrop,
-        config = state.config
-    ) {
-            Text(
-                "这里保存的是助手可跨天使用的简短长期记忆；你可以直接修改；关闭记忆后内容会保留，但不会再注入对话或由助手更新",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            MaterialOutlinedTextField(
-                value = memoryDraft,
-                onValueChange = { memoryDraft = it.take(1200) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 300.dp),
-                placeholder = {
-                    Text("例如：默认只修改本周；跨校区课程之间预留 30 分钟")
-                },
-                minLines = 6,
-                maxLines = 10,
-                shape = RoundedRectangle(24.dp)
-            )
-            Text(
-                "${memoryDraft.length}/1200",
-                modifier = Modifier.align(Alignment.End),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(SleepDownDesignTokens.Dialog.ActionSpacing)
-            ) {
-                QuickSheetLiquidAction(
-                    label = "清空",
-                    enabled = true,
-                    backdrop = popupBackdrop,
-                    config = state.config,
-                    destructive = true,
-                    modifier = Modifier.weight(1f),
-                    height = SleepDownDesignTokens.CenteredDialog.ActionHeight
-                ) {
-                    memoryDraft = ""
-                }
-                QuickSheetLiquidAction(
-                    label = "取消",
-                    enabled = true,
-                    backdrop = popupBackdrop,
-                    config = state.config,
-                    modifier = Modifier.weight(1f),
-                    height = SleepDownDesignTokens.CenteredDialog.ActionHeight
-                ) {
-                    showMemoryEditor = false
-                }
-                QuickSheetLiquidAction(
-                    label = "保存",
-                    enabled = true,
-                    backdrop = popupBackdrop,
-                    config = state.config,
-                    primary = true,
-                    modifier = Modifier.weight(1f),
-                    height = SleepDownDesignTokens.CenteredDialog.ActionHeight
-                ) {
-                    DayAgentPreferences.saveMemory(context, memoryDraft)
-                    memoryText = DayAgentPreferences.memory(context)
-                    memoryDraft = memoryText
-                    showMemoryEditor = false
-                }
-            }
-    }
 }
 
 @Composable
@@ -1313,4 +853,3 @@ private fun AiProviderPickerRow(
         }
     )
 }
-

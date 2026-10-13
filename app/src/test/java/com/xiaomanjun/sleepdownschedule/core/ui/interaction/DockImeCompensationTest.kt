@@ -1,6 +1,5 @@
-package com.xiaomanjun.sleepdownschedule
+package com.xiaomanjun.sleepdownschedule.core.ui.interaction
 
-import com.xiaomanjun.sleepdownschedule.core.ui.interaction.dockImeCompensationPx
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

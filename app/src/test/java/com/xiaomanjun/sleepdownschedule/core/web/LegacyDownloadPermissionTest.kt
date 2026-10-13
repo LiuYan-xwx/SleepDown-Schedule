@@ -1,6 +1,5 @@
-package com.xiaomanjun.sleepdownschedule
+package com.xiaomanjun.sleepdownschedule.core.web
 
-import com.xiaomanjun.sleepdownschedule.core.web.shouldRequestLegacyDownloadPermission
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

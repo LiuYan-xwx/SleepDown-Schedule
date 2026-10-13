@@ -87,8 +87,17 @@ Google 没有适合所有应用的单一“最佳性能架构”。本项目的 
 
 ### 下载边界修复
 
+提交：`c9554794`。
+
 - HTTP 响应中的文件名先解码、提取末级名称和限制 UTF-8 长度；旧 Android 使用独占创建，避免目录穿越及覆盖同名文件。写入失败只删除本次创建的半成品。
 - Android 10 及以上通过 MediaStore 的 `IS_PENDING` 发布完整文件，创建或写入失败时删除本次条目；连接在成功与失败路径均释放。
 - 显式处理有限次数重定向，按每个目标读取 Cookie，跨来源 Referer 仅发送来源地址；拒绝 HTTPS 降级。data URL 支持 Base64 与百分号编码，并在后台解码、写入。
 - Release Kotlin 编译与 15 项下载命名、失败清理、重定向和解析测试通过。文件名截断随后改为线性扫描，最终回归再次覆盖。
 - API 依据：[共享存储及待发布文件](https://developer.android.com/training/data-storage/shared/media)、[HttpURLConnection](https://developer.android.com/reference/java/net/HttpURLConnection)。未替换既有下载入口或用户确认流程。
+
+### 剩余职责整理
+
+- 课程编辑分成草稿规则、页面会话、表单、选择器和标题；通用设置、AI 导入设置与助手设置分别对应文件。
+- 玻璃层按配色算法、公共表面、光照与课程卡片绘制组织；首页 Morph 按宿主、状态、纯几何、菜单与个性化动画组织。原声明 166 个函数体核对一致，Release Kotlin 编译通过。
+- 相关测试目录跟随生产职责，PR 纳入模式切换、共享协议、下载及新目录测试。架构树同步在 `PROJECT_STRUCTURE.md`。
+- 第一次完整回归共 1,325 项，1,314 通过、11 失败：8 项为备份并发测试中的 Windows SQLite 临时路径问题，2 项为已有规则的旧断言，1 项为课程结束判断边界。修复单独提交，不混入职责迁移。

@@ -1,4 +1,4 @@
-package com.xiaomanjun.sleepdownschedule
+package com.xiaomanjun.sleepdownschedule.feature.home
 
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp

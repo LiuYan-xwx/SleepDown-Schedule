@@ -1,4 +1,4 @@
-package com.xiaomanjun.sleepdownschedule
+package com.xiaomanjun.sleepdownschedule.feature.home
 
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.*

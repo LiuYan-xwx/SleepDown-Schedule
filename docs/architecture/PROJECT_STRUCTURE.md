@@ -66,32 +66,61 @@ app -------------> transition
 ```text
 com/xiaomanjun/sleepdownschedule/
 ├── *.kt                              # 稳定 Android 入口、Application 与兼容门面
-├── app/{config,startup,state,ui}/
-├── model/
-├── data/local/
-├── data/repository/
-├── domain/{agent,course,schedule}/
+├── app/                              # 应用装配
+│   ├── {config,startup,state}/       # 应用配置、启动、顶层业务状态
+│   └── ui/                          # 导航、Activity Host、材质 provider 装配
+├── model/                            # 跨功能模型与持久化字段
+│   ├── VisualEffectMode.kt          # 保存的视效选项与有效模式规则
+│   ├── AppIconPreferencesSnapshot.kt
+│   └── agent/AgentActions.kt        # 助手操作模型
+├── data/                             # 数据入口
+│   ├── local/                       # Room、DAO、连续迁移
+│   ├── repository/                  # 事务与统一读写
+│   └── preferences/                 # 视效偏好
+├── domain/                           # 业务规则
+│   ├── agent/                       # 计划预览、验证、课程片段
+│   ├── course/                      # 课程与冲突计算
+│   └── schedule/                    # 学期、周次、节次、时间规则
 ├── core/
 │   ├── {analytics,identity,performance,remoteconfig,wallpaper,web}/
-│   └── ui/{chrome,controls,designsystem,interaction,material,scaffold,settings,text}/
-├── platform/coloros/
+│   └── ui/
+│       ├── designsystem/            # 公共 Dialog、Picker、QuickSheet、材质渲染协议
+│       ├── material/                # 材质状态、首页控件协议
+│       ├── {chrome,controls}/       # 顶栏按钮、Slider、Toggle 等公共控件
+│       └── {interaction,scaffold,settings,text}/
+├── platform/coloros/                 # 凝光的厂商适配
+│   ├── ColorOsVisualCapability.kt   # 渠道、系统与设备能力
+│   ├── ColorOsMaterialProvider.kt   # 实现公共材质协议
+│   ├── ColorOsNativeUi.kt           # 系统资源、反射与生命周期
+│   └── ColorOs*.kt                  # 按按钮、菜单、弹窗、数值控件分别适配
 ├── feature/
-│   ├── home/{day,week,overlay,personalization}/
-│   ├── course/{editor,management}/
+│   ├── home/
+│   │   ├── day/                     # 日视图、壁纸、可读性、课程卡片
+│   │   ├── week/                    # 周视图、课程布局、编辑手势会话
+│   │   ├── overlay/                 # 叠层宿主、状态、几何、菜单、个性化动画
+│   │   └── personalization/         # 个性化编辑状态、滑条、颜色与取色
+│   ├── course/
+│   │   ├── editor/                  # 草稿规则、页面、表单、选择器、标题
+│   │   └── management/              # 课程管理
 │   ├── schedule/{manager,picker}/
 │   ├── importing/{history,progress}/
-│   ├── agent/background/
+│   ├── agent/                       # 助手呈现、卡片、对话、输入、消息
+│   │   └── background/              # 后台任务生命周期
 │   ├── experimental/ 与 coloros/
 │   ├── backup/
 │   ├── reminder/
-│   ├── settings/
+│   ├── settings/                    # 通用、视效、AI 导入、助手等设置页面
 │   ├── update/
-│   └── widget/providers/
-├── glass/ui/
-└── transition/legacy/
+│   └── widget/providers/            # Provider 入口与各类 RemoteViews renderer
+├── glass/                            # 液态玻璃采样与绘制
+│   └── ui/                          # 配色算法、表面、光照、课程卡片
+└── transition/                       # 跨 Activity 转场
+    └── legacy/                      # 当前成熟转场路线
 ```
 
 原跨职责聚合文件已完成以下实质拆分：
+
+材质调用关系：`app/ui/ProvideVisualEffects` 读取 `data/preferences` 和系统能力，选择有效模式，再装配公共 renderer。`feature` 只调用 `core/ui` 与 `glass` 的入口；凝光实现位于 `platform/coloros`。更换材质不进入数据库事务，也不改变页面保存流程。`feature/coloros` 的厂商课程读取协议与凝光材质属于不同功能，保留独立门控。
 
 - `Data.kt` 拆为共享模型、Converters、DAO、Room migrations、Repository 和纯配置变换；`AppDatabase` 的稳定 FQCN 保留。
 - `ScheduleLogic.kt` 拆为日历计算、导入编解码、提醒与 Android 入口组件。
