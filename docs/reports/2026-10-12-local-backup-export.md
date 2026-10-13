@@ -52,4 +52,18 @@ Android 的 `ACTION_CREATE_DOCUMENT` 为新建文件授予读写访问，并不�
 - 新增真实 Room 测试，同时放入无归属配置、节次、课程、助手记录，以及两个有效课表、未使用公共作息和小组件；验证完整 `BackupExportService` → ZIP → 解码的实际链路，并逐表比较导出前后原记录没有变化。
 - 最终范围修复的定向测试共 60 项通过：`BackupDocumentExportTest` 8 项、`BackupExportImportPlanTest` 6 项、`BackupRoomSnapshotReaderTest` 3 项、`SharedPeriodSchemeBackupTest` 17 项、`SharedPeriodSchemeRepositoryTest` 26 项。测试使用 `testGithubDebugUnitTest`；当前工程没有 `testGithubReleaseUnitTest`，该入口的首次尝试在任务选择阶段失败后已改用实际入口。
 - 最终 `assembleGithubRelease` 通过，包含 R8、资源压缩与 lintVital；签名和包身份已核对。APK 为 `SleepDown-1.2.7_beta5-backup-current-profiles-release.apk`，7,355,766 字节，SHA-256 为 `2582a7a7b1bdc8af1e42f568d854ea125e5d70cce184fee7a410be9e5b24b93e`。
-- 已通过 SDK ADB 5038 通道在 PLJ110（Android 17）普通版 `install -r` 成功；未清除应用数据或自动启动。完整导出等待用户复测，当前不能宣称设备已成功生成备份。
+- 已通过 SDK ADB 5038 通道在 PLJ110（Android 17）普通版 `install -r` 成功；未清除应用数据或自动启动。用户随后确认“备份成功，显示非零文件大小”，ADB 元数据确认新文件为 6,327,904 字节。没有读取或复制备份内容。
+
+## ColorOS 版恢复兼容性
+
+- 用户进一步反馈这份备份无法在独立 ColorOS 包恢复，01:21 保存截图只显示通用“无法读取这份备份”提示。已安装 ColorOS 包为 `com.xiaomanjun.sleepdownschedule.coloros`，版本 `1.2.7_beta5` / `34`。
+- 对照 ColorOS 仓库基线 `b628164`，`BackupCodec`、`BackupFormat`、`BackupImportPlan` 与普通版文件哈希一致。`AppIdentity` 却只允许当前包名与旧身份 `com.example.courseschedule`，因此普通版来源在 ColorOS 版必定被拒绝；不是本轮修改了备份格式。
+- 两个仓库均增加普通版与 ColorOS 正式包名的精确互认，保留旧身份迁移、自身包名及开发包隔离规则。解码、校验和、预览确认和恢复事务保持原实现。
+- ColorOS 改动保留在其独立仓库的 `codex/backup-cross-edition-20261012` 工作树，基于当时已安装版本所属的 ColorOS 路线。用户随后要求停止这次独立 ColorOS 构建，未安装，未验证实机恢复预览。
+
+## 2026-10-13 收尾
+
+- 按用户要求先收尾已有改动。普通版分支保留已验证的 ChatGPT 和备份导出修复；精确包名互认单独提交，不混入凝光视效和架构整理。
+- 后续凝光合入普通版时保留独立 ColorOS 包的备份来源兼容，以支持用户迁回普通版；不自动导入或覆盖设备上的课表。
+- `testGithubDebugUnitTest` 的 `AppIdentityTest` 7 项、`BackupCodecTest` 29 项通过。普通版和 ColorOS 正式包精确互认；相似包名、开发包隔离以及原备份编解码检查保持通过。
+- 首次将测试和 Release 放在一次构建中时，2 GB Gradle 堆不足，已停止本轮构建进程。改用单 worker、4 GB 堆分开运行，未更改项目的默认构建配置。
