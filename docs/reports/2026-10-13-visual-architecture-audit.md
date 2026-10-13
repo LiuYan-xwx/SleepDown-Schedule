@@ -126,8 +126,12 @@ Google 没有适合所有应用的单一“最佳性能架构”。本项目的 
 - `scripts/check_architecture.py`：409 个受约束 Kotlin 文件通过；338 条变更路径没有禁入文件。Room schema 和连续迁移未变，完整 PR diff 空白检查通过。
 - APK：`app/build/outputs/apk/github/release/app-github-release.apk`，包名 `com.xiaomanjun.sleepdownschedule`，`1.2.7_beta5` / versionCode `34`，7,475,450 字节；`apksigner verify --verbose` 通过（v2 签名）。这是待实测候选，未更改发布版本。
 - APK SHA-256：`7E4C15E31FA290D15CB434FE15C2BAE427BEDD1C7198700E20B1236C4CD33103`。
-- 最终日志：本地忽略目录 `tmp/architecture-final-validation-20261014.log`。未安装、未运行设备基准测试，不宣称已经证明视觉一致或帧率提升。
+- 最终日志：本地忽略目录 `tmp/architecture-final-validation-20261014.log`。未运行设备基准测试，不宣称已经证明视觉一致或帧率提升。
+
+### 按用户要求安装（2026-10-14）
+
+通过项目 SDK 的 5038 通道，确认唯一在线设备 PLJ110，Android 17、ColorOS `V17.0.0`。使用 `install -r` 覆盖安装上述签名 APK，返回 `Success`，保留应用数据；安装后再次读取包版本与更新时间。未自动启动应用，视觉与交互仍待用户实测。
 
 ### 交付边界
 
-用户选择先创建 GitHub PR，实机测试后再合入。此分支不合并 `main`，不发布 Release，不自动安装。设备验收应覆盖两种材质切换、明暗主题、首页日/周视图、编辑保存、弹层退出及桌面组件；帧率与启动性能仍需同设备、同场景测量。
+用户选择先创建 GitHub PR，实机测试后再合入，并在最终构建后明确要求安装。此分支不合并 `main`，不发布 Release。设备验收应覆盖两种材质切换、明暗主题、首页日/周视图、编辑保存、弹层退出及桌面组件；帧率与启动性能仍需同设备、同场景测量。
