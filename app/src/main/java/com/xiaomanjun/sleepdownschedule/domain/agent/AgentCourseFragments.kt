@@ -1,5 +1,8 @@
-package com.xiaomanjun.sleepdownschedule.feature.agent
+package com.xiaomanjun.sleepdownschedule.domain.agent
 
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.domain.schedule.parseCoursePeriodTimes
 import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeCoursePeriodTimes

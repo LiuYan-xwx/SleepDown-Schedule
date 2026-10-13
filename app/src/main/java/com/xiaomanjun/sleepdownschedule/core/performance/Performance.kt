@@ -5,7 +5,6 @@ import com.xiaomanjun.sleepdownschedule.glass.ui.*
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.core.wallpaper.*
 
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
 
 import android.graphics.Bitmap
 import android.os.Build
@@ -68,11 +67,6 @@ fun animatedGlassQuality(phase: StartupPhase): Float = when (phase) {
 
 val StartupPhase.isAtLeastEntrance: Boolean
     get() = this == StartupPhase.Entrance || this == StartupPhase.Settle || this == StartupPhase.FullQuality
-
-@Composable
-fun StartupPerformanceBoost(active: Boolean) {
-    // Glass quality is lowered elsewhere during heavy transitions; no CPU/GPU performance hint is requested here.
-}
 
 @Composable
 fun StartupJankStats(

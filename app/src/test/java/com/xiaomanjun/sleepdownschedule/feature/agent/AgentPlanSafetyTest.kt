@@ -1,5 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.agent
 
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.agentActionsHaveOverlappingCourseScopes
+import com.xiaomanjun.sleepdownschedule.domain.agent.previewAgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.verifyAgentPlan
 import com.xiaomanjun.sleepdownschedule.model.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject

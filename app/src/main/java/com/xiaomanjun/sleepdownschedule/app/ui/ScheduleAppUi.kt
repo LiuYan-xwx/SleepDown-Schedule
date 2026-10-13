@@ -146,7 +146,6 @@ import com.xiaomanjun.sleepdownschedule.core.performance.LocalStartupPhase
 import com.xiaomanjun.sleepdownschedule.core.performance.PerformanceAnimationState
 import com.xiaomanjun.sleepdownschedule.core.performance.RefreshCadenceDiagnostics
 import com.xiaomanjun.sleepdownschedule.core.performance.StartupJankStats
-import com.xiaomanjun.sleepdownschedule.core.performance.StartupPerformanceBoost
 import com.xiaomanjun.sleepdownschedule.core.performance.StartupPhase
 import com.xiaomanjun.sleepdownschedule.core.performance.TopBarEntranceContainer
 import com.xiaomanjun.sleepdownschedule.core.performance.animatedGlassQuality
@@ -195,10 +194,10 @@ import com.xiaomanjun.sleepdownschedule.domain.schedule.formatScheduleDate
 import com.xiaomanjun.sleepdownschedule.domain.schedule.previewCourseEdits
 import com.xiaomanjun.sleepdownschedule.domain.schedule.scheduleAdjustmentForDate
 import com.xiaomanjun.sleepdownschedule.effectiveCurrentWeek
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentActionHandler
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentPlan
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentPlanExecutionResult
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentValidatedActionType
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentActionHandler
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentBackgroundZoomRestScale
 import com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentCountdownCinematicState
 import com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentPreferences
@@ -1263,7 +1262,6 @@ fun CourseScheduleAppUi(
     LaunchedEffect(glassRenderPhase) {
         glassSceneState.synchronizePhase(glassRenderPhase)
     }
-    StartupPerformanceBoost(homeDialogVisible)
     PerformanceAnimationState(startupAnimation, startupAnimation != "Idle")
     GlassPerformanceDiagnostics(glassSceneState, startupAnimation)
     RefreshCadenceDiagnostics(

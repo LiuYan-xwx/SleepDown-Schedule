@@ -1,5 +1,6 @@
 package com.xiaomanjun.sleepdownschedule.feature.backup
 
+import com.xiaomanjun.sleepdownschedule.model.AppIconPreferencesSnapshot
 import com.xiaomanjun.sleepdownschedule.model.*
 import com.xiaomanjun.sleepdownschedule.domain.schedule.PeriodSchemeSource
 
@@ -525,7 +526,7 @@ class BackupCodecTest {
             ),
             preferences = BackupPreferences(
                 preferencesVersion = BackupFormatV1.PREFERENCES_VERSION,
-                appIcon = BackupAppIconPreferences(mode = "FOLLOW_DARK_MODE", followsSystemDarkMode = true, darkTheme = false),
+                appIcon = AppIconPreferencesSnapshot(mode = "FOLLOW_DARK_MODE", followsSystemDarkMode = true, darkTheme = false),
                 dayAgent = BackupDayAgentPreferences(
                     hasDecision = true,
                     enabled = true,

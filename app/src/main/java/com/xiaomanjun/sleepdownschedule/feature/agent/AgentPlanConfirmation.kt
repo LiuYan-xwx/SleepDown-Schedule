@@ -1,5 +1,14 @@
 package com.xiaomanjun.sleepdownschedule.feature.agent
 
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanPreview
+import com.xiaomanjun.sleepdownschedule.domain.agent.agentPeriodFragment
+import com.xiaomanjun.sleepdownschedule.domain.agent.scopedEditedCourse
+import com.xiaomanjun.sleepdownschedule.domain.agent.sourcePeriodSet
+import com.xiaomanjun.sleepdownschedule.domain.agent.sourceWeekSet
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape

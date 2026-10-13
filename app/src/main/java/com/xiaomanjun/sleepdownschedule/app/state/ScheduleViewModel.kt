@@ -1,5 +1,10 @@
 package com.xiaomanjun.sleepdownschedule.app.state
 
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentPeriodSettingsPatch
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.*
 
 import com.xiaomanjun.sleepdownschedule.feature.schedule.*

@@ -24,6 +24,8 @@ jobs:
           persist-credentials: false
       - id: scope
         run: python3 .github/scripts/pr_scope.py
+      - name: Check source dependency boundaries
+        run: python3 scripts/check_architecture.py
 
   android:
     name: Android compile

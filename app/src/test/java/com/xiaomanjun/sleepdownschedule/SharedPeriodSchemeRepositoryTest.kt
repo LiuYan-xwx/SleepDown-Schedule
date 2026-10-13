@@ -5,9 +5,9 @@ import android.content.Context
 import androidx.room.Room
 import com.xiaomanjun.sleepdownschedule.data.repository.ScheduleRepository
 import com.xiaomanjun.sleepdownschedule.domain.schedule.*
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentActionScope
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentValidatedAction
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentValidatedActionType
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.model.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
