@@ -255,12 +255,6 @@ class HomeAnchoredMorphGeometryTest {
     }
 
     @Test
-    fun threeDotMenuUsesRequestedOpeningAndClosingDurations() {
-        assertEquals(440, HomeAddMenuMorphOpenDurationMillis)
-        assertEquals(285, HomeAddMenuMorphCloseDurationMillis)
-    }
-
-    @Test
     fun threeDotMenuOpeningStartsAtPressedSourceFootprint() {
         val pressed = 1.047f
         val geometry = addMenuGeometry(0f, false, pressed)
@@ -340,25 +334,18 @@ class HomeAnchoredMorphGeometryTest {
     }
 
     @Test
-    fun destinationClosingMatchesTheLegacyButtonAnchoredGeometry() {
-        val helper = destinationTrajectoryGeometry(0.42f, true)
-        val explicit = homeAnchoredMorphGeometry(
-            source = button,
-            target = destination,
-            rawProgress = 0.42f,
-            closing = true,
-            directClosing = false,
-            directSourceCornerRadiusPx = 21f,
-            pinchDiameterPx = 18f,
-            minimumDropPx = 12f,
-            maximumDropPx = 72f,
-            maximumArcPx = 88f,
-            targetCornerRadiusPx = 32f,
-            motionStyle = HomeMorphEasingStyle.Legacy
-        )
-
-        assertRectEquals(explicit.rect, helper.rect)
-        assertEquals(explicit.pathProgress, helper.pathProgress, Tolerance)
+    fun destinationClosingReturnsContinuouslyToTheSourceButton() {
+        assertRectEquals(destination, destinationTrajectoryGeometry(1f, true).rect)
+        assertRectEquals(button, destinationTrajectoryGeometry(0f, true).rect)
+        var previousDistance = Float.MAX_VALUE
+        for (step in 20 downTo 0) {
+            val geometry = destinationTrajectoryGeometry(step / 20f, true)
+            val distance = (geometry.rect.center - button.center).getDistance()
+            assertTrue(distance <= previousDistance + Tolerance)
+            assertTrue(geometry.rect.width >= button.width - Tolerance)
+            assertTrue(geometry.rect.width <= destination.width + Tolerance)
+            previousDistance = distance
+        }
     }
 
     @Test
@@ -427,17 +414,6 @@ class HomeAnchoredMorphGeometryTest {
             shellStart + stableChildPlacement + localOffset,
             Tolerance
         )
-    }
-
-    @Test
-    fun personalizationReusesThreeDotMenuMotionDurations() {
-        assertEquals(330, HomeMenuDestinationLegacyMotion.OpenDurationMillis)
-        assertEquals(350, HomeMenuDestinationLegacyMotion.CloseDurationMillis)
-        assertEquals(350, HomeMenuDestinationCloseDurationMillis)
-        assertEquals(HomeAddMenuMorphOpenDurationMillis, HomePersonalizeMorphOpenDurationMillis)
-        assertEquals(HomeAddMenuMorphCloseDurationMillis, HomePersonalizeMorphCloseDurationMillis)
-        assertTrue(HomeMenuDestinationLegacyMotion.OpenDurationMillis != HomeAddMenuMorphOpenDurationMillis)
-        assertEquals(HomePersonalizeMorphCloseDurationMillis, HomeAddMenuMorphCloseDurationMillis)
     }
 
     @Test

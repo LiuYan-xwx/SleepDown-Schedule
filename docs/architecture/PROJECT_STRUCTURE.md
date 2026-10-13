@@ -61,7 +61,7 @@ app -------------> transition
 - Home、周视图、Morph 与玻璃代码拆分时保持函数体、Modifier 顺序、几何和时间参数不变。
 - 每批变更使用独立回退点，并执行与风险相称的最小充分验证。
 
-## 当前落地结构（2026-09-25 核对）
+## 当前落地结构（2026-10-13 核对）
 
 ```text
 com/xiaomanjun/sleepdownschedule/
@@ -70,12 +70,13 @@ com/xiaomanjun/sleepdownschedule/
 ├── model/
 ├── data/local/
 ├── data/repository/
-├── domain/{course,schedule}/
+├── domain/{agent,course,schedule}/
 ├── core/
-│   ├── {analytics,identity,performance,remoteconfig,wallpaper}/
-│   └── ui/{designsystem,interaction,settings,text}/
+│   ├── {analytics,identity,performance,remoteconfig,wallpaper,web}/
+│   └── ui/{chrome,controls,designsystem,interaction,material,scaffold,settings,text}/
+├── platform/coloros/
 ├── feature/
-│   ├── home/{day,week,overlay}/
+│   ├── home/{day,week,overlay,personalization}/
 │   ├── course/{editor,management}/
 │   ├── schedule/{manager,picker}/
 │   ├── importing/{history,progress}/
@@ -114,15 +115,15 @@ com/xiaomanjun/sleepdownschedule/
 
 ## 有意保留的聚合文件
 
-以下文件仍超过 800 行，但已归入清晰的职责目录。本轮不继续按行数切割，以免把一次结构重构扩大成视觉、手势或协议重写：
+文件长度用于触发职责审查，不直接决定拆分。以下边界继续保持内聚：
 
 | 文件组 | 保持聚合的原因 |
 | --- | --- |
-| `app/ui/ScheduleAppUi.kt` | 应用级 Compose 装配及多个稳定 Activity host 共享状态；后续应按页面路线单独分批拆分。 |
-| `feature/home/day`、`feature/home/week`、`feature/home/overlay` | 包含已验收的周视图手势、缓存、液态玻璃与 Morph 几何/时序，当前按视觉链路保持内聚。 |
-| `feature/settings/SettingsUi.kt`、`feature/schedule/{manager,picker}` | 设置和课表编辑存在密集的会话状态、弹层与保存交接，已完成分类，后续可按页面根节点拆分。 |
-| `feature/importing`、`feature/agent` | 单文件内是完整导入会话或 Agent 工具调用状态机，不能只按 Composable 数量机械切割。 |
-| `feature/widget` | Provider 生命周期、RemoteViews 像素布局、缓存和位图渲染共同决定组件输出，已按 provider 类型分组。 |
+| `app/ui/ScheduleAppUi.kt` | 应用级 Compose 装配、首页导航及多个叠层之间的交接。Activity host、设置页面、个性化面板、公共控件与浏览器能力已拆出；后续调整需围绕具体会话所有权。 |
+| `feature/home/week/WeekEditOverlayController.kt`、`feature/home/overlay` | 一个编辑或 Morph 会话共用进入、运动、保存和退出状态，保持这些状态及私有辅助函数在一起。周视图页面、卡片文字、卡片绘制与布局计算已分开。 |
+| `feature/settings`、`feature/schedule/{manager,picker}` | 页面与共享设置控件已分开；课表编辑的保存交接与弹层会话保留在功能内。 |
+| `feature/importing`、`feature/agent/DayAgentConversationDialog.kt` | 完整导入会话或对话窗口生命周期保持内聚；助手卡片、呈现状态、几何、输入栏、消息内容与共享执行规则分别归位。 |
+| `feature/widget/providers/WeekScheduleWidgetRenderer.kt` | 同一 RemoteViews 输出的像素布局与位图渲染保持在一起；Provider 入口、日组件和周组件 renderer 已分开。 |
 | `transition/legacy`、`transition/OplusSeamlessBackend.kt` | 保留既有 renderer 和暂缓的 Oplus 调查边界；结构整理不改动动画所有权或交接时序。 |
 | `data/local/AppDatabaseMigrations.kt`、`data/repository/ScheduleRepository.kt` | 前者按 Room 版本形成连续迁移账本，后者维持单一数据入口；拆分前需先定义稳定接口。 |
 

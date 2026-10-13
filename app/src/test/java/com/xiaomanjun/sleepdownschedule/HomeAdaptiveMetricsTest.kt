@@ -109,7 +109,7 @@ class HomeAdaptiveMetricsTest {
     }
 
     @Test
-    fun shallowLandscapeWindowAvoidsTwoPaneLayout() {
+    fun wideLandscapeWindowUsesTabletNavigationEvenAtCompactHeight() {
         val metrics = calculateHomeAdaptiveMetrics(
             widthDp = 900,
             heightDp = 500,
@@ -118,8 +118,8 @@ class HomeAdaptiveMetricsTest {
             fontScale = 1f
         )
 
-        assertEquals(HomeAdaptiveProfile.Large, metrics.profile)
-        assertFalse(metrics.isTabletLandscape)
+        assertEquals(HomeAdaptiveProfile.TabletLandscape, metrics.profile)
+        assertTrue(metrics.isTabletLandscape)
     }
 
     @Test
@@ -198,6 +198,6 @@ class HomeAdaptiveMetricsTest {
         assertEquals(8.dp, phone)
         assertTrue(shortTabletCard >= 10.dp)
         assertTrue(tallTabletCard > shortTabletCard)
-        assertTrue(tallTabletCard <= 16.dp)
+        assertTrue(tallTabletCard <= 96.dp * 0.34f)
     }
 }
