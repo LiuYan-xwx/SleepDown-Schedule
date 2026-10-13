@@ -1,5 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.core.ui.designsystem
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
+
+import com.xiaomanjun.sleepdownschedule.core.ui.material.HomeMaterialControls
+
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -8,6 +12,7 @@ import androidx.compose.runtime.Immutable
 /** An absent capability leaves the existing Compose control in charge of rendering and input. */
 @Immutable
 internal data class ControlMaterialRenderers(
+    val home: HomeMaterialControls = object : HomeMaterialControls {},
     val alert: (@Composable (NativeAlertRequest) -> Boolean)? = null,
     val button: (@Composable (NativeCapsuleButtonRequest, @Composable RowScope.() -> Unit) -> Boolean)? = null,
     val courseCard: (@Composable (NativeCourseCardRequest, @Composable () -> Unit) -> Boolean)? = null,
@@ -32,6 +37,7 @@ internal fun ProvideControlMaterials(
     content: @Composable () -> Unit
 ) {
     CompositionLocalProvider(
+        LocalHomeMaterialControls provides renderers.home,
         LocalNativeAlertRenderer provides renderers.alert,
         LocalNativeCapsuleButtonRenderer provides renderers.button,
         LocalNativeCourseCardMode provides courseCardMode,

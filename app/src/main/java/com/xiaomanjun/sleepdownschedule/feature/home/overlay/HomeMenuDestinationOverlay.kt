@@ -1,5 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.home.overlay
 
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
+
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
+
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
 import com.xiaomanjun.sleepdownschedule.transition.legacy.*
@@ -1271,7 +1275,7 @@ internal fun HomeMenuDestinationOverlayHost(
 /** Share the Dock's wallpaper contrast decision, including input values. */
 @Composable
 private fun AddCourseDockContent(config: ScheduleConfigEntity, content: @Composable () -> Unit) {
-    val style = com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsHomeChromeStyle.current
+    val style = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle.current
     val native = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current != null
     val foreground = if (!native) Color.Unspecified else style?.foreground?.let { Color(it) }
         ?: if (style?.dark ?: appUsesDarkTheme(config)) Color.White else Color.Black

@@ -6,7 +6,7 @@ import com.xiaomanjun.sleepdownschedule.domain.schedule.courseAlignmentFragments
 import com.xiaomanjun.sleepdownschedule.core.ui.text.LocalCourseTextMotionFrozen
 import kotlinx.coroutines.flow.collectLatest
 
-import com.xiaomanjun.sleepdownschedule.feature.agent.excludeHomeAssistantPull
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
 import com.xiaomanjun.sleepdownschedule.feature.agent.homeCountdownShockwave
 
 import com.xiaomanjun.sleepdownschedule.domain.schedule.courseNeedsSupplementaryWeekRow
@@ -1442,7 +1442,7 @@ fun WeekSwitchButton(direction: Int, config: ScheduleConfigEntity, backdrop: Bac
             backdrop = backdrop,
             modifier = Modifier
                 .size(34.dp)
-                .excludeHomeAssistantPull()
+                .excludeParentPullGesture()
                 .graphicsLayer(alpha = if (enabled) 1f else 0.35f),
             isInteractive = enabled,
             surfaceColor = surfaceColor.copy(alpha = homeChromeGlassSurfaceAlpha(lightGlass)),
@@ -1466,7 +1466,7 @@ fun WeekSwitchButton(direction: Int, config: ScheduleConfigEntity, backdrop: Bac
         GlassPill(
             backdrop = null,
             config = config,
-            modifier = Modifier.size(34.dp).excludeHomeAssistantPull().graphicsLayer(alpha = if (enabled) 1f else 0.35f),
+            modifier = Modifier.size(34.dp).excludeParentPullGesture().graphicsLayer(alpha = if (enabled) 1f else 0.35f),
             onClick = if (enabled) onClick else null
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

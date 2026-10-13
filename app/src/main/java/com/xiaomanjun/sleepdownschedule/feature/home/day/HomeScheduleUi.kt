@@ -4,7 +4,7 @@ import com.xiaomanjun.sleepdownschedule.domain.schedule.isHiddenByPeriodAlignmen
 import com.xiaomanjun.sleepdownschedule.domain.schedule.captureOriginalPeriodTimes
 import com.xiaomanjun.sleepdownschedule.domain.schedule.projectCourseArrangement
 
-import com.xiaomanjun.sleepdownschedule.feature.agent.excludeHomeAssistantPull
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
 
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -551,7 +551,7 @@ fun HomeDateTitle(
     val interactionSource = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
-            .excludeHomeAssistantPull()
+            .excludeParentPullGesture()
             .clickable(interactionSource = interactionSource, indication = null, onClick = onReturnCurrent),
         verticalArrangement = Arrangement.Center
     ) {

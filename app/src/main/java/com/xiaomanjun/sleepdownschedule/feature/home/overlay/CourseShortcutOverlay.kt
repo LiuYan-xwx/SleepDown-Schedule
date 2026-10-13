@@ -1,5 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.feature.home.overlay
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -31,7 +33,7 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.R
-import com.xiaomanjun.sleepdownschedule.app.ui.AddMenuAction
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
 import com.xiaomanjun.sleepdownschedule.app.ui.HomeMode
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
 import com.xiaomanjun.sleepdownschedule.feature.home.week.WeekCourseOverlayCardContent
@@ -249,7 +251,7 @@ internal fun CourseShortcutOverlay(
                 )
             }
             val target = placement.bounds
-            val nativeMenu = com.xiaomanjun.sleepdownschedule.coloros.ColorOsCourseShortcutMenu(
+            val nativeMenu = LocalHomeMaterialControls.current.ShortcutMenu(
                 session = request, bounds = source, dark = appUsesDarkTheme(config), actions = actions,
                 closing = controller.closing,
                 onDismiss = { controller.close() }, bindDismiss = { controller.dismissNativeMenu = it })

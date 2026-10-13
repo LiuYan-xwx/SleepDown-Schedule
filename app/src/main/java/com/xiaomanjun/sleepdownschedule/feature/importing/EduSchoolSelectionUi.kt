@@ -1,5 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
+
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.LocalDetailActivityFloatingOverlayHost
@@ -926,7 +928,7 @@ fun SchoolSearchField(
     modifier: Modifier = Modifier
 ) {
     val isLargeScreen = rememberHomeAdaptiveMetrics().isLargeScreen
-    if (com.xiaomanjun.sleepdownschedule.coloros.ColorOsSchoolSearchField(
+    if (LocalHomeMaterialControls.current.SearchField(
             value, onValueChange, appUsesDarkTheme(config), bottomOffset,
             entranceProgress, isLargeScreen, modifier
         )) return

@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.xiaomanjun.sleepdownschedule.coloros.ColorOsNativeUi
-import com.xiaomanjun.sleepdownschedule.coloros.ProvideSleepDownColorOs
+import com.xiaomanjun.sleepdownschedule.platform.coloros.ColorOsNativeUi
+import com.xiaomanjun.sleepdownschedule.platform.coloros.ProvideColorOsMaterials
 import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects
 import com.xiaomanjun.sleepdownschedule.model.VisualEffectMode
 import com.xiaomanjun.sleepdownschedule.core.ui.material.VisualEffectsState
@@ -26,6 +26,6 @@ internal fun ProvideVisualEffects(content: @Composable () -> Unit) {
         }
     }
     CompositionLocalProvider(LocalVisualEffects provides state) {
-        ProvideSleepDownColorOs(enabled = state.usesNativeControls, content = content)
+        ProvideColorOsMaterials(enabled = state.usesNativeControls, content = content)
     }
 }

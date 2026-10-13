@@ -37,8 +37,17 @@ Google 没有适合所有应用的单一“最佳性能架构”。本项目的 
 
 ### 可选模式接入
 
+提交：`3d7738b1`。
+
 - 默认模式保留液态玻璃；凝光选择仅在 GitHub 渠道、ColorOS 17 及以上并且系统 COUI 能力探测成功时开放。保存偏好与当前有效模式分离，未知偏好或缺失能力均回到液态玻璃。
 - 统一提供按钮、滑块、开关、课程卡片、材质表面、菜单和弹窗渲染入口；切换会撤销原生 provider，使 Compose 释放其 AndroidView/窗口资源。
 - 修正来源分支影响普通模式的主题色、弹窗操作顺序、快速设置密度/字体和后备按钮额外触觉反馈。原生 QuickSheet 保留退出内容及异步保存边界。
 - `compileGithubReleaseKotlin` 通过；19 项模式、Picker/QuickSheet 生命周期、首页切换与转场目录测试通过。`assembleGithubRelease` 含 R8、资源压缩、lintVital 和签名通过（3m52s）；未安装，尚未进行两种模式的实机视觉验收。
 - 干净依赖重放发现旧 Miuix 第五份增量补丁无法应用；改为相对官方 `v0.9.3` 的单一完整补丁。重新解包官方基线并应用后，20 个运行时源码文件与本地依赖一致（归一化 LF/CRLF）。不包含依赖目录的 IDE/CI 清理。
+
+### 厂商与材质边界
+
+- 原生实现及对应测试迁到 `platform/coloros`；功能页面通过 `HomeMaterialControls` 调用 Dock、图标按钮、搜索、命名与课程菜单。
+- 首页 Dock 布局回到 `feature/home`；共享菜单模型、窗口边距计算和父级手势排除协议移到 `core/ui`。厂商实现不再依赖应用装配或助手功能。
+- 模式切换测试验证退出原生 provider 时释放消费者、移除能力，再切回时创建新的消费者。Dock 重组边界与助手手势相关测试和 Release Kotlin 编译通过。
+- 组件 FQCN、课程 provider authority 和转场 wire id 保持不变。

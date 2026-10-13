@@ -1,10 +1,10 @@
 # SleepDown ColorOS 组件框架
 
-本框架服务 SleepDown ColorOS 派生版，入口为 `coloros/ProvideSleepDownColorOs`。组件源文件已从 `feature/experimental/colorosui` 移到独立的 `coloros/` 目录；课程管理 Activity 的旧类名保留，避免改变 Manifest、Intent 和转场路由。
+本框架提供主应用的“凝光视效”可选材质，实现位于 `platform/coloros/`。`app/ui/ProvideVisualEffects` 读取偏好和运行时能力，通过 `ProvideColorOsMaterials` 接入公共控件。默认保留液态玻璃；GitHub 渠道、ColorOS 17 及以上且 COUI 能力探测成功时开放凝光选项。课程管理 Activity 的类名保留，避免改变 Manifest、Intent 和转场路由。
 
 ## 装配和边界
 
-- `MainActivity.kt` 的公共 `AppTheme` 安装框架；共用设计系统通过 `NativeAlertRenderer`、`NativeCapsuleButtonRenderer`、`NativeCourseCardRenderer`、`NativeMaterialSurfaceRenderer` 接口调用，不依赖具体业务 feature。
+- `MainActivity.kt` 的公共 `CourseScheduleTheme` 安装框架；`ControlMaterialRenderers` 统一提供 Dialog、Button、Card、Surface、值控件和菜单渲染能力，`HomeMaterialControls` 提供 Dock、图标按钮、搜索和命名弹窗入口。业务页面不引用厂商实现，厂商实现不引用 `app` / `feature`。
 - `ColorOsNativeUi` 管理系统 APK、类加载器、资源、材质状态与跟手光；`ColorOsContext` 负责配对的主题 Context。
 - `ColorOsCapsuleButton`、`ColorOsDialogs`、`ColorOsSearchField` 是共用组件；Dock、首页按钮、菜单及课程卡适配也集中在框架中。
 - 不复制或打包系统 COUI 实现；运行时读取已安装、经过系统应用标志检查的 Settings / Contacts / FileManager。当前能力还受渠道、设备厂商和系统 API 支持约束，缺少组件时返回共用 Compose 实现。
@@ -30,7 +30,7 @@ Alert 的原生窗口仅按操作槽位等结构创建，外观和标签变化�
 
 ## 弹窗操作顺序
 
-`LiquidAlertActionStyle.Cancel` 表达取消、稍后、返回修改和继续编辑语义，不按显示文本判断。纵向操作按 Primary → Secondary → Destructive → Cancel 排列，同类动作保留声明顺序。COUI 三排的物理顺序为 neutral → positive → negative，因此 Primary 映射到 neutral、取消映射到 negative；两操作使用 positive → negative，横向时确认在右、取消在左。Compose 后备布局使用相同语义顺序。回调始终按原始 action 索引绑定。
+`LiquidAlertActionStyle.Cancel` 表达取消、稍后、返回修改和继续编辑语义，不按显示文本判断。原生纵向操作按 Primary → Secondary → Destructive → Cancel 排列，同类动作保留声明顺序。COUI 三排的物理顺序为 neutral → positive → negative，因此 Primary 映射到 neutral、取消映射到 negative；两操作使用 positive → negative，横向时确认在右、取消在左。Compose 后备布局保留既有声明顺序。回调始终按原始 action 索引绑定。
 
 原生按钮栏的 recommend ID 同步到实际 Primary 按钮；没有 Primary 时明确清除推荐 ID，防止破坏性动作在材质刷新后变为主题色主按钮。新弹窗按下面规则声明，不依赖声明顺序或原生槽位默认色：
 

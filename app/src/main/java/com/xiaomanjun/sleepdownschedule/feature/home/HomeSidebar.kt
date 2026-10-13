@@ -82,13 +82,13 @@ import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.feature.home.day.hasAnyWallpaper
-import com.xiaomanjun.sleepdownschedule.app.ui.AddMenuAction
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
 import com.xiaomanjun.sleepdownschedule.app.ui.HomeLightGlassSurfaceColor
 import com.xiaomanjun.sleepdownschedule.app.ui.HomeLightGlassSelectedAccentColor
 import com.xiaomanjun.sleepdownschedule.app.ui.homeChromeGlassSurfaceAlpha
 import com.xiaomanjun.sleepdownschedule.app.ui.homeChromeBlur
 import com.xiaomanjun.sleepdownschedule.core.identity.currentIconResId
-import com.xiaomanjun.sleepdownschedule.feature.agent.excludeHomeAssistantPull
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.ui.GlassSurface
 import com.xiaomanjun.sleepdownschedule.glass.ui.GlassTokens
@@ -290,7 +290,7 @@ internal fun HomeSidebar(
         // The outer node occupies the window only to place the floating bar. Give input its
         // own measured child, otherwise a disabled bar can shield the dialog beside it.
         Box(
-            Modifier.fillMaxSize().excludeHomeAssistantPull()
+            Modifier.fillMaxSize().excludeParentPullGesture()
                 .pointerInput(enabled) {
                     if (!enabled) awaitPointerEventScope {
                         while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }

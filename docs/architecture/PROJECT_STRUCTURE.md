@@ -2,6 +2,8 @@
 
 本文档定义 Android 主工程的目录边界与渐进式重构规则。结构调整不得改变业务行为、持久化协议、视觉参数、动画时序或 Android 组件语义。
 
+职责划分、拆分条件和验收步骤统一遵循 [代码组织约定](CODE_ORGANIZATION.md)。可选材质通过公共控件协议注入，详见 [ColorOS 材质适配](SLEEPDOWN_COLOROS_FRAMEWORK.md)。
+
 ## 仓库区域
 
 - `app/`：Android 应用主模块。
@@ -32,6 +34,7 @@ app -------------> transition
 - `data/`：Room、数据库修复、迁移和 Repository。
 - `domain/`：无 Android UI 副作用的课表规则与计算。
 - `core/`：通用 UI、远程配置、应用身份、壁纸与性能基础设施。
+- `platform/coloros/`：可选凝光材质的系统能力探测、COUI 适配与资源释放；不依赖 `app` 或 `feature`。页面通过 `core/ui` 的材质协议调用，由 `app` 装配。
 - `feature/`：按用户功能纵向组织的页面、状态和工作流。
 - `feature/experimental/`：当前普通版中按渠道和设备门控的厂商通知实验入口；专属 Shizuku/root 桥接分别在 `app/src/github/` 和 `app/src/store/`。
 - `glass/`：液态玻璃统一框架，保持既有采样域和材质边界。

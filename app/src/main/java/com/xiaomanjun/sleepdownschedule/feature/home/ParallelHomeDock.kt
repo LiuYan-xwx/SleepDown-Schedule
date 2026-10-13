@@ -1,5 +1,13 @@
 package com.xiaomanjun.sleepdownschedule.feature.home
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
+
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.dockImeCompensationPx
+
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeButtonAccent
+
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -34,9 +42,7 @@ import com.kyant.backdrop.catalog.utils.InteractiveHighlight
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownFloatingAddButton
-import com.xiaomanjun.sleepdownschedule.feature.agent.excludeHomeAssistantPull
-import com.xiaomanjun.sleepdownschedule.coloros.ColorOsHomeFloatingButtonVisual
-import com.xiaomanjun.sleepdownschedule.coloros.ColorOsParallelHomeDock
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
 import com.xiaomanjun.sleepdownschedule.glass.withRecordingDensity
 import com.xiaomanjun.sleepdownschedule.glass.ui.LocalAdaptiveGlass
 import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
@@ -50,8 +56,8 @@ internal fun homeImportButtonGlassColor(light: Boolean): Color =
 
 @Composable
 internal fun homeDockImportButtonGlassColor(light: Boolean): Color {
-    val nativeStyle = com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsHomeChromeStyle.current != null
-    val accent = com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsButtonAccent.current
+    val nativeStyle = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle.current != null
+    val accent = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeButtonAccent.current
         ?.let { Color(it) }
         ?: HomeImportButtonColor
     // Native FAB's custom theme layer is opaque. Match it before blending toward the menu tint.
@@ -64,7 +70,7 @@ internal fun homeDockImportButtonGlassColor(light: Boolean): Color {
 internal fun HomeImportButtonReturnVisual(
     backdrop: Backdrop?, config: ScheduleConfigEntity, modifier: Modifier = Modifier
 ) {
-    if (ColorOsHomeFloatingButtonVisual(dark = !LocalAdaptiveGlass.current.lightGlass, modifier = modifier)) return
+    if (LocalHomeMaterialControls.current.FloatingButtonVisual(dark = !LocalAdaptiveGlass.current.lightGlass, modifier = modifier)) return
     SleepDownFloatingAddButton(
         backdrop = backdrop,
         contentDescription = "添加与导入",
@@ -88,7 +94,7 @@ internal fun ParallelHomeDock(
     val homeSelected = selectedIndex < 2
     val adaptiveGlass = LocalAdaptiveGlass.current
     val light = if (homeSelected) adaptiveGlass.lightGlass else !appUsesDarkTheme(config)
-    if (ColorOsParallelHomeDock(
+    if (LocalHomeMaterialControls.current.ParallelDock(
             selectedIndex = selectedIndex, dark = !light, buttonHidden = buttonHidden,
             modifier = modifier, onSelect = onSelect, onOpenMenu = onOpenMenu
         )) return
@@ -162,7 +168,7 @@ internal fun ParallelHomeDock(
                             if (!buttonHidden) drawLayer(returnButtonLayer)
                         }
                         .then(if (buttonInteractive) plusInteraction.gestureModifier else Modifier)
-                        .excludeHomeAssistantPull()
+                        .excludeParentPullGesture()
                         .then(if (buttonInteractive) Modifier.semantics { testTag = "parallel_import_button" }
                             else Modifier.clearAndSetSemantics {}),
                     surfaceColor = plusSurface, sharedInteractiveHighlight = plusInteraction,
@@ -172,7 +178,7 @@ internal fun ParallelHomeDock(
                 HomeDockTabs(selectedIndex, true, config, backdrop, light,
                     modifier = Modifier.offset {
                         IntOffset((((groupWidth - dockWidth) / 2).toPx() * (1f - split.value)).roundToInt(), dockTop.roundToPx())
-                    }.width(dockWidth).excludeHomeAssistantPull().semantics { testTag = "parallel_home_dock" },
+                    }.width(dockWidth).excludeParentPullGesture().semantics { testTag = "parallel_home_dock" },
                     onSelect = onSelect)
             }
         }

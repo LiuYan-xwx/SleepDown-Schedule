@@ -2,6 +2,10 @@
 
 package com.xiaomanjun.sleepdownschedule.feature.home.overlay
 
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
+
+import com.xiaomanjun.sleepdownschedule.core.ui.material.homeMaterialNeutralTint
+
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.contentDescription
@@ -27,7 +31,7 @@ import com.xiaomanjun.sleepdownschedule.feature.home.day.*
 import com.xiaomanjun.sleepdownschedule.feature.home.week.*
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.courseEditorOpeningTaper
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.courseEditorTaperTransform
-import com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsHomeChromeStyle
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
 
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -1521,9 +1525,9 @@ internal fun HomeAnchoredMorphOverlayHost(
                     }.drawWithContent { drawContent(); addMenuSurfacePrepared.set(true) },
                     shape = settledSurfaceShape,
                     shapeProvider = { RoundedRectangle(with(density) { geometry.value.cornerRadiusPx.toDp() }) },
-                    dark = LocalColorOsHomeChromeStyle.current?.dark ?: !glassUsesLightStyle(config),
+                    dark = LocalHomeMaterialStyle.current?.dark ?: !glassUsesLightStyle(config),
                     followTouch = true
-                ), neutral = LocalColorOsHomeChromeStyle.current?.weatherMaterial == true,
+                ), neutral = LocalHomeMaterialStyle.current?.weatherMaterial == true,
                     touchSource = nativeMenuTouch, motion = nativeMenuMotion)
             ) {} == true
             if (!nativeMovingSurface && movingDroplet) {
@@ -1532,8 +1536,8 @@ internal fun HomeAnchoredMorphOverlayHost(
             val envelope = Rect(min(source.left, targetRect.left) - margin, min(source.top, targetRect.top) - margin,
                 max(source.right, targetRect.right) + margin, max(source.bottom, targetRect.bottom) + margin)
             val origin = Offset(-envelope.left, -envelope.top)
-            val tint = LocalColorOsHomeChromeStyle.current?.let {
-                com.xiaomanjun.sleepdownschedule.coloros.colorOsHomeNeutralTint(it.dark)
+            val tint = LocalHomeMaterialStyle.current?.let {
+                com.xiaomanjun.sleepdownschedule.core.ui.material.homeMaterialNeutralTint(it.dark)
             } ?: (if (glassUsesLightStyle(config)) HomeLightGlassSurfaceColor else Color(0xFF050505))
                 .copy(alpha = if (glassUsesLightStyle(config)) 0.28f else 0.40f)
             Box(Modifier.offset { IntOffset(envelope.left.roundToInt(), envelope.top.roundToInt()) }
@@ -2652,7 +2656,7 @@ internal fun HomeAddMenuMorphPanel(
                 HomeAddMenuDividerHeightDp
             ).dp.toPx()
     }
-    val homeStyle = LocalColorOsHomeChromeStyle.current.takeIf { !compactActions }
+    val homeStyle = LocalHomeMaterialStyle.current.takeIf { !compactActions }
     val menuConfig = remember(config, homeStyle) {
         if (homeStyle != null) config.copy(wallpaperUri = null) else config
     }
@@ -2930,7 +2934,7 @@ internal fun HomeAddMenuMorphPanel(
                     highlightRadiusMultiplier = 0.65f,
                     shape = shape,
                     surfaceColor = homeStyle?.let {
-                        com.xiaomanjun.sleepdownschedule.coloros.colorOsHomeNeutralTint(it.dark)
+                        com.xiaomanjun.sleepdownschedule.core.ui.material.homeMaterialNeutralTint(it.dark)
                     } ?: (
                         if (lightGlass) HomeLightGlassSurfaceColor else Color(0xFF050505)
                         ).copy(alpha = if (lightGlass) 0.28f else 0.40f)

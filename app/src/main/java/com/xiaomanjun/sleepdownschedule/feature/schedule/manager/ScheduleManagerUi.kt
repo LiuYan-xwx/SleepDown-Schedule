@@ -1,5 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.feature.schedule.manager
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
+
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.app.state.*
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
@@ -1129,7 +1131,7 @@ fun ScheduleRenameDialog(
     onCancel: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    if (com.xiaomanjun.sleepdownschedule.coloros.ColorOsNameDialog(
+    if (LocalHomeMaterialControls.current.NameDialog(
             "重命名课表", profile.name, appUsesDarkTheme(config), 24, onCancel,
             { onSave(it.ifBlank { "未命名课表" }) })) return
     var name by remember(profile.id) { mutableStateOf(profile.name) }
