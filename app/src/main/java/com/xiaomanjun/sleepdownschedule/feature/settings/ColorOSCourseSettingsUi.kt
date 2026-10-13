@@ -25,20 +25,26 @@ import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertAction
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertActionStyle
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertDialog
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceSection
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsActionRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDivider
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsGroup
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsInfoRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsValueRow
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseBridge
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseComponentInstaller
-import com.xiaomanjun.sleepdownschedule.feature.coloros.CourseComponentDownloadCheck
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseContract
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseDiagnostics
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseExperiment
+import com.xiaomanjun.sleepdownschedule.feature.coloros.CourseComponentDownloadCheck
 import com.xiaomanjun.sleepdownschedule.feature.update.GiteeAppUpdater
 import com.xiaomanjun.sleepdownschedule.feature.update.UpdateDownloadState
 import com.xiaomanjun.sleepdownschedule.model.AppState
-import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun ColorOSCourseSettingsSection(

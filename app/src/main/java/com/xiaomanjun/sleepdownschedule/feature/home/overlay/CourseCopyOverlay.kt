@@ -46,7 +46,7 @@ import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.CourseEditorWeekGrid
 import com.xiaomanjun.sleepdownschedule.feature.home.week.WeekCourseOverlayCardContent
-import com.xiaomanjun.sleepdownschedule.feature.home.day.glassForegroundColor
+import com.xiaomanjun.sleepdownschedule.glass.ui.glassForegroundColor
 import com.xiaomanjun.sleepdownschedule.feature.home.week.weekEditLandingImpactTransform
 import com.xiaomanjun.sleepdownschedule.domain.schedule.parityMatches
 import com.xiaomanjun.sleepdownschedule.glass.ui.*

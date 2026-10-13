@@ -1,9 +1,10 @@
 package com.xiaomanjun.sleepdownschedule
+
 import com.xiaomanjun.sleepdownschedule.app.ui.*
+import com.xiaomanjun.sleepdownschedule.feature.course.editor.*
 import com.xiaomanjun.sleepdownschedule.feature.home.*
 import com.xiaomanjun.sleepdownschedule.feature.home.overlay.*
-import com.xiaomanjun.sleepdownschedule.feature.course.editor.*
-
+import com.xiaomanjun.sleepdownschedule.model.HomeMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

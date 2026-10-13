@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.home
 
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
-
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,12 +12,11 @@ import com.kyant.backdrop.catalog.components.LiquidBottomTab
 import com.kyant.backdrop.catalog.components.LiquidBottomTabs
 import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
-import com.xiaomanjun.sleepdownschedule.app.ui.DockTabContent
-import com.xiaomanjun.sleepdownschedule.app.ui.DockItem
-import com.xiaomanjun.sleepdownschedule.app.ui.HomeLightGlassSelectedAccentColor
-import com.xiaomanjun.sleepdownschedule.app.ui.HomeLightGlassSurfaceColor
-import com.xiaomanjun.sleepdownschedule.app.ui.homeChromeBlur
-import com.xiaomanjun.sleepdownschedule.app.ui.homeChromeGlassSurfaceAlpha
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.HomeLightGlassSelectedAccentColor
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.HomeLightGlassSurfaceColor
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeChromeBlur
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeChromeGlassSurfaceAlpha
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
 import com.xiaomanjun.sleepdownschedule.glass.ui.GlassPill
 
 /** Both phone modes use the same Dock cells and material; parallel mode adds one cell. */

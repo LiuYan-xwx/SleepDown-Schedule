@@ -183,7 +183,7 @@ object ScheduleImportParser {
         }
     }
 
-    fun parseTimeForUi(value: String): LocalTime = LocalTime.parse(value, timeFormatter)
+    fun parseTimeForUi(value: String): LocalTime = com.xiaomanjun.sleepdownschedule.domain.schedule.parseScheduleTime(value)
 
     private fun decodeSchedulePayloadWithFallback(cleaned: String): ScheduleImportPayload {
         return runCatching {

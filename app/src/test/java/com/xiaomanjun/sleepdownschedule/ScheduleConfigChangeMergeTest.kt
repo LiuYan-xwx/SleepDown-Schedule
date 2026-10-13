@@ -1,10 +1,17 @@
 package com.xiaomanjun.sleepdownschedule
 
-import com.xiaomanjun.sleepdownschedule.app.ui.*
-import com.xiaomanjun.sleepdownschedule.feature.settings.shouldInterceptSettingsBack
-import com.xiaomanjun.sleepdownschedule.domain.schedule.withChangesFrom
-
 import androidx.compose.ui.unit.dp
+import com.xiaomanjun.sleepdownschedule.app.ui.*
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeChromeBlur
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeHeaderGlassTokens
+import com.xiaomanjun.sleepdownschedule.domain.schedule.withChangesFrom
+import com.xiaomanjun.sleepdownschedule.feature.home.personalization.mergePersonalizationCandidate
+import com.xiaomanjun.sleepdownschedule.feature.home.personalization.resolveActivePersonalizationSlider
+import com.xiaomanjun.sleepdownschedule.feature.settings.SettingsPage
+import com.xiaomanjun.sleepdownschedule.feature.settings.SettingsSection
+import com.xiaomanjun.sleepdownschedule.feature.settings.TabletSettingsNavigationState
+import com.xiaomanjun.sleepdownschedule.feature.settings.shouldInterceptSettingsBack
+import com.xiaomanjun.sleepdownschedule.feature.settings.usesPersistentCenteredSettingsTitle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

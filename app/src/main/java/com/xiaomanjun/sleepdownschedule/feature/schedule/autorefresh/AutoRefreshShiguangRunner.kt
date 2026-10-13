@@ -8,28 +8,28 @@ import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import com.xiaomanjun.sleepdownschedule.AppState
 import com.xiaomanjun.sleepdownschedule.ImportDraft
-import com.xiaomanjun.sleepdownschedule.app.ui.releaseSleepDownWebView
+import com.xiaomanjun.sleepdownschedule.core.web.releaseSleepDownWebView
+import com.xiaomanjun.sleepdownschedule.feature.importing.DesktopWebUserAgent
 import com.xiaomanjun.sleepdownschedule.feature.importing.EduAdapter
 import com.xiaomanjun.sleepdownschedule.feature.importing.EduBridgeInteractionRequest
 import com.xiaomanjun.sleepdownschedule.feature.importing.configureEduImportSecurity
-import com.xiaomanjun.sleepdownschedule.feature.importing.DesktopWebUserAgent
-import com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.ShiguangWebRequestInterceptor
 import com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.ShiguangBridgeHost
+import com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.ShiguangWebRequestInterceptor
 import com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.injectShiguangRuntime
 import com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.installShiguangRuntime
 import com.xiaomanjun.sleepdownschedule.feature.importing.shiguang.uninstallShiguangRuntime
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 internal data class AutoRefreshFetch(
     val draft: ImportDraft,

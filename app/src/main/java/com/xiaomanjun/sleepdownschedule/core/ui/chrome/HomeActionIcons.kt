@@ -1,9 +1,9 @@
-package com.xiaomanjun.sleepdownschedule.feature.home
+package com.xiaomanjun.sleepdownschedule.core.ui.chrome
 
-import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap

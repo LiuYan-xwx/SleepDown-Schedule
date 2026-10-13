@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.home.overlay
 
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -33,17 +31,18 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.R
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
-import com.xiaomanjun.sleepdownschedule.app.ui.HomeMode
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
 import com.xiaomanjun.sleepdownschedule.feature.home.week.WeekCourseOverlayCardContent
 import com.xiaomanjun.sleepdownschedule.glass.ui.CourseGlassCard
 import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
-import kotlinx.coroutines.CoroutineScope
+import com.xiaomanjun.sleepdownschedule.model.HomeMode
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 internal data class CourseShortcutRequest(
     val course: CourseEntity,

@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,17 +19,23 @@ import com.kyant.backdrop.Backdrop
 import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.DialogLiquidButton
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceCategory
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceSection
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsActionRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDivider
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsGroup
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsInfoRow
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SleepDownLiquidDropdownPreference
-import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
 import com.xiaomanjun.sleepdownschedule.feature.importing.AiReasoningEffort
+import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatGptReasoningEfforts
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthException
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptAuthManager
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptBrowser
 import com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt.ChatGptModel
+import java.util.Date
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import java.util.Date
 
 @Composable
 internal fun ChatGptSettingsPanel(

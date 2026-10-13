@@ -23,7 +23,7 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.shapes.Capsule
 import com.xiaomanjun.sleepdownschedule.model.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import com.xiaomanjun.sleepdownschedule.feature.home.day.glassForegroundColor
+import com.xiaomanjun.sleepdownschedule.glass.ui.glassForegroundColor
 import java.time.LocalDate
 import kotlin.math.roundToInt
 

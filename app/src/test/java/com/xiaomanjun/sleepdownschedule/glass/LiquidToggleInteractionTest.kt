@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
-import com.xiaomanjun.sleepdownschedule.app.ui.LiquidControlToggle
+import com.xiaomanjun.sleepdownschedule.core.ui.controls.LiquidControlToggle
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test

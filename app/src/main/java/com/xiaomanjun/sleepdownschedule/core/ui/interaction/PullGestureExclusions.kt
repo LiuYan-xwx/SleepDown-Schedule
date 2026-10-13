@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.core.ui.interaction
 
-import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
-
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
