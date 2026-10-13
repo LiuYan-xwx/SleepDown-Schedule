@@ -21,12 +21,12 @@
 `com.xiaomanjun.sleepdownschedule` 根包只保留稳定 Android 入口、Application 和必要兼容门面。实现按以下方向组织：
 
 ```text
-app -> feature -> domain/model
- |       |          ^
- |       +-------> data
- +---------------> core
-feature/ui ------> glass
-app -------------> transition
+app ──装配──> feature ──> domain/model
+ │               ├────> data ──> domain/model
+ │               ├────> core/ui（控件与材质协议）
+ │               └────> glass（液态玻璃）
+ ├──注入──> platform/coloros ──> core/ui（实现协议）
+ └────────> transition（跨 Activity 转场）
 ```
 
 - `app/`：应用装配、导航与顶层状态协调。
@@ -61,7 +61,7 @@ app -------------> transition
 - Home、周视图、Morph 与玻璃代码拆分时保持函数体、Modifier 顺序、几何和时间参数不变。
 - 每批变更使用独立回退点，并执行与风险相称的最小充分验证。
 
-## 当前落地结构（2026-10-13 核对）
+## 当前落地结构（2026-10-14 核对）
 
 ```text
 com/xiaomanjun/sleepdownschedule/
@@ -118,9 +118,9 @@ com/xiaomanjun/sleepdownschedule/
     └── legacy/                      # 当前成熟转场路线
 ```
 
-原跨职责聚合文件已完成以下实质拆分：
-
 材质调用关系：`app/ui/ProvideVisualEffects` 读取 `data/preferences` 和系统能力，选择有效模式，再装配公共 renderer。`feature` 只调用 `core/ui` 与 `glass` 的入口；凝光实现位于 `platform/coloros`。更换材质不进入数据库事务，也不改变页面保存流程。`feature/coloros` 的厂商课程读取协议与凝光材质属于不同功能，保留独立门控。
+
+原跨职责聚合文件已完成以下实质拆分：
 
 - `Data.kt` 拆为共享模型、Converters、DAO、Room migrations、Repository 和纯配置变换；`AppDatabase` 的稳定 FQCN 保留。
 - `ScheduleLogic.kt` 拆为日历计算、导入编解码、提醒与 Android 入口组件。
