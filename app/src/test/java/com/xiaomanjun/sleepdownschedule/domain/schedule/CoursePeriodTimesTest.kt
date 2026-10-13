@@ -1,6 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.domain.schedule
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -23,10 +24,15 @@ class CoursePeriodTimesTest {
     }
 
     @Test
-    fun refusesMissingOrConflictingPeriodBells() {
-        assertThrows(IllegalArgumentException::class.java) {
-            normalizeCourseClock(null, null, "3,10:10-10:50", listOf(3, 4))
-        }
+    fun partialPeriodBellsPreserveUncoveredLessonsForTheSelectedScheme() {
+        val partial = normalizeCourseClock(null, null, "3,10:10-10:50", listOf(3, 4))
+        assertNull(partial.start)
+        assertNull(partial.end)
+        assertEquals("3,10:10-10:50", partial.periodTimes)
+    }
+
+    @Test
+    fun refusesConflictingPeriodBells() {
         assertThrows(IllegalArgumentException::class.java) {
             normalizeCourseClock(null, null, "3,10:10-11:10;4,11:05-11:45", listOf(3, 4))
         }
