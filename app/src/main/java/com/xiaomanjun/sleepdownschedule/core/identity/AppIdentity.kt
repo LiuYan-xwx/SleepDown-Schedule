@@ -2,7 +2,7 @@ package com.xiaomanjun.sleepdownschedule.core.identity
 
 object AppIdentity {
     const val PRODUCTION_PACKAGE_NAME = "com.xiaomanjun.sleepdownschedule"
-    const val COLOROS_PACKAGE_NAME = "com.xiaomanjun.sleepdownschedule.platform.coloros"
+    const val COLOROS_PACKAGE_NAME = "com.xiaomanjun.sleepdownschedule.coloros"
     const val LEGACY_PACKAGE_NAME = "com.example.courseschedule"
 
     // Both release editions use the same backup protocol. Keep this an exact allowlist:

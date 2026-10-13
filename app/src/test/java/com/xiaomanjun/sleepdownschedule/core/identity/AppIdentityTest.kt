@@ -24,8 +24,9 @@ class AppIdentityTest {
 
     @Test
     fun releaseEditionsCanRestoreEachOthersBackups() {
-        AppIdentity.requireTrustedBackupSource(production, AppIdentity.COLOROS_PACKAGE_NAME)
-        AppIdentity.requireTrustedBackupSource(AppIdentity.COLOROS_PACKAGE_NAME, production)
+        val publishedColorOsPackage = "com.xiaomanjun.sleepdownschedule.coloros"
+        AppIdentity.requireTrustedBackupSource(production, publishedColorOsPackage)
+        AppIdentity.requireTrustedBackupSource(publishedColorOsPackage, production)
     }
 
     @Test
