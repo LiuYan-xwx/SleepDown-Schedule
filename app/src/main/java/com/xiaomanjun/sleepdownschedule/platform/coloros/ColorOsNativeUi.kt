@@ -3,8 +3,8 @@ package com.xiaomanjun.sleepdownschedule.platform.coloros
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ApplicationInfo
-import android.content.res.Configuration
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Color
 import android.util.Log
 import android.util.TypedValue
@@ -13,9 +13,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import java.lang.reflect.Proxy
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
+import java.lang.reflect.Proxy
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.WeakHashMap

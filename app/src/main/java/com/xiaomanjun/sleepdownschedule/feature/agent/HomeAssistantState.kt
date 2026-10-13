@@ -12,14 +12,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
+import com.xiaomanjun.sleepdownschedule.glass.ui.topAssistantBezierSpec
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import com.xiaomanjun.sleepdownschedule.glass.ui.topAssistantBezierSpec
-import kotlin.math.abs
 
 internal enum class HomeAssistantStage { Hidden, Reminder, Conversation }
 

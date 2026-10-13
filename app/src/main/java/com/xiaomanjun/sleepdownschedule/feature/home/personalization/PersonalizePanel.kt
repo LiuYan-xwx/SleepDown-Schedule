@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.home.personalization
 
-import com.xiaomanjun.sleepdownschedule.R
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
@@ -48,6 +47,7 @@ import com.kyant.backdrop.catalog.components.LiquidPanel
 import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.AppState
 import com.xiaomanjun.sleepdownschedule.CourseCardColorMode
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.WeekCardContentLayout
 import com.xiaomanjun.sleepdownschedule.WeekCardTextAlignment

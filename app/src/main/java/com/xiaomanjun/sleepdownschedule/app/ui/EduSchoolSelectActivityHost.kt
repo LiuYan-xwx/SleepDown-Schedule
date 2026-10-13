@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.app.ui
 
-import com.xiaomanjun.sleepdownschedule.R
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
@@ -23,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaomanjun.sleepdownschedule.CourseScheduleApp
 import com.xiaomanjun.sleepdownschedule.CourseScheduleTheme
 import com.xiaomanjun.sleepdownschedule.EduImportActivity
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.app.state.ScheduleViewModel
 import com.xiaomanjun.sleepdownschedule.app.state.ScheduleViewModelFactory
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.TopGlassIconButton

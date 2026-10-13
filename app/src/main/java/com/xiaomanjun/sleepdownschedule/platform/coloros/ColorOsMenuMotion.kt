@@ -58,4 +58,3 @@ internal class ColorOsMenuMotionBinding(source: ColorOsNativeUi.Source, target: 
         motion.update(0f, 0f, 1f, 1f)
     }
 }
-

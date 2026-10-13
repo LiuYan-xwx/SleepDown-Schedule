@@ -13,4 +13,3 @@ fun glassForegroundColor(config: ScheduleConfigEntity): ComposeColor {
 fun appPanelForegroundColor(config: ScheduleConfigEntity): ComposeColor {
     return if (appUsesDarkTheme(config)) ComposeColor.White else ComposeColor(0xFF111111)
 }
-

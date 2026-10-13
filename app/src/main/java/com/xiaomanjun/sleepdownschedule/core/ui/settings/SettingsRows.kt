@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.core.ui.settings
 
-import com.xiaomanjun.sleepdownschedule.R
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
@@ -63,6 +62,7 @@ import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.LiveUpdateChipTextMode
 import com.xiaomanjun.sleepdownschedule.NotificationMode
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.controls.LiquidControlToggle
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.DialogButtonRole

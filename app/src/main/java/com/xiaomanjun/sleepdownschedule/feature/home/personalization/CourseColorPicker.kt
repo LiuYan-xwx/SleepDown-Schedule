@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.home.personalization
 
-import com.xiaomanjun.sleepdownschedule.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -45,15 +44,16 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
 import com.kyant.shapes.Capsule
 import com.xiaomanjun.sleepdownschedule.CourseCardColorMode
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.QuickSheetLiquidAction
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownDesignTokens
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownPickerDialog
 import com.xiaomanjun.sleepdownschedule.core.ui.material.controlAccentColor
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.CourseColorPaletteButton
-import com.xiaomanjun.sleepdownschedule.glass.ui.appPanelForegroundColor
 import com.xiaomanjun.sleepdownschedule.feature.settings.title
 import com.xiaomanjun.sleepdownschedule.glass.ui.DefaultCourseCardPalette
+import com.xiaomanjun.sleepdownschedule.glass.ui.appPanelForegroundColor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 

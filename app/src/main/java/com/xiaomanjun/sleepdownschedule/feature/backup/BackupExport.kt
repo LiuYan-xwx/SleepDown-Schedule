@@ -1,12 +1,10 @@
 package com.xiaomanjun.sleepdownschedule.feature.backup
 
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.feature.widget.*
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-
 import androidx.room.withTransaction
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
+import com.xiaomanjun.sleepdownschedule.feature.agent.*
+import com.xiaomanjun.sleepdownschedule.feature.widget.*
 
 /**
  * Room-only read snapshot used by the backup adapter. It deliberately contains entities, not a

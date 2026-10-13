@@ -3,8 +3,10 @@ package com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
 import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptInferenceSessions
+import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
+import java.net.URI
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -22,8 +24,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
-import java.net.URI
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Process-owned OAuth operation, independent of Activity rotation / onStop. All session writes,

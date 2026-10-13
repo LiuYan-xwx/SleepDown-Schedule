@@ -2,8 +2,8 @@ package com.xiaomanjun.sleepdownschedule.core.identity
 
 import android.content.ComponentName
 import android.content.Context
-import android.content.res.Configuration
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import androidx.core.content.edit
 import com.xiaomanjun.sleepdownschedule.model.AppIconPreferencesSnapshot
 

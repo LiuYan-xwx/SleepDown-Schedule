@@ -1,8 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt
 
-import org.json.JSONObject
-import java.math.BigInteger
 import java.io.ByteArrayOutputStream
+import java.math.BigInteger
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -15,6 +14,7 @@ import java.security.Signature
 import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import org.json.JSONObject
 
 /** Public SIWC protocol only. Never use browser cookies or ChatGPT's private backend. */
 internal object ChatGptProtocol {

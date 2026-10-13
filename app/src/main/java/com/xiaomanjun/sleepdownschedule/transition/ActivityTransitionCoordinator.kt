@@ -6,8 +6,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
-import android.os.Bundle
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import com.xiaomanjun.sleepdownschedule.BuildConfig
 import com.xiaomanjun.sleepdownschedule.R

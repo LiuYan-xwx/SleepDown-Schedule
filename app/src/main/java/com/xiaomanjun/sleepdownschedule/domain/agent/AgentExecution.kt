@@ -1,15 +1,14 @@
 package com.xiaomanjun.sleepdownschedule.domain.agent
 
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.domain.course.*
+import com.xiaomanjun.sleepdownschedule.domain.schedule.arrangementForWrite
+import com.xiaomanjun.sleepdownschedule.domain.schedule.captureOriginalPeriodTimes
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
+import com.xiaomanjun.sleepdownschedule.domain.schedule.projectCourseArrangements
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
-import com.xiaomanjun.sleepdownschedule.domain.course.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-import com.xiaomanjun.sleepdownschedule.domain.schedule.arrangementForWrite
-import com.xiaomanjun.sleepdownschedule.domain.schedule.captureOriginalPeriodTimes
-import com.xiaomanjun.sleepdownschedule.domain.schedule.projectCourseArrangements
-
-import com.xiaomanjun.sleepdownschedule.*
 
 /**
  * Deterministic Agent execution model. The language model proposes actions; this layer owns

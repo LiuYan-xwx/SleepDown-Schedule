@@ -30,11 +30,11 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -44,18 +44,18 @@ import com.kyant.backdrop.catalog.utils.InteractiveHighlight
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.domain.schedule.parityMatches
 import com.xiaomanjun.sleepdownschedule.feature.course.editor.CourseEditorWeekGrid
 import com.xiaomanjun.sleepdownschedule.feature.home.week.WeekCourseOverlayCardContent
-import com.xiaomanjun.sleepdownschedule.glass.ui.glassForegroundColor
 import com.xiaomanjun.sleepdownschedule.feature.home.week.weekEditLandingImpactTransform
-import com.xiaomanjun.sleepdownschedule.domain.schedule.parityMatches
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import com.xiaomanjun.sleepdownschedule.glass.ui.glassForegroundColor
 import kotlin.math.PI
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 internal data class CourseCopyFlightFrame(val center: Offset, val width: Float, val height: Float, val rotation: Float)
 

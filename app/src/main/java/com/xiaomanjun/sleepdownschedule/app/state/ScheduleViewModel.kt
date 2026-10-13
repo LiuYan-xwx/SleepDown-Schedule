@@ -1,27 +1,25 @@
 package com.xiaomanjun.sleepdownschedule.app.state
 
-import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
-import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
-import com.xiaomanjun.sleepdownschedule.model.agent.AgentPeriodSettingsPatch
-import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
-import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
-import com.xiaomanjun.sleepdownschedule.*
-
-import com.xiaomanjun.sleepdownschedule.feature.schedule.*
-
-import com.xiaomanjun.sleepdownschedule.core.wallpaper.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.periodTopologyResizeOperations
-import com.xiaomanjun.sleepdownschedule.domain.schedule.decodeScheduleAdjustments
-import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeScheduleAdjustments
-import com.xiaomanjun.sleepdownschedule.feature.reminder.NotificationScheduler
-
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.core.wallpaper.*
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
+import com.xiaomanjun.sleepdownschedule.domain.schedule.decodeScheduleAdjustments
+import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeScheduleAdjustments
+import com.xiaomanjun.sleepdownschedule.domain.schedule.periodTopologyResizeOperations
+import com.xiaomanjun.sleepdownschedule.feature.agent.*
+import com.xiaomanjun.sleepdownschedule.feature.reminder.NotificationScheduler
+import com.xiaomanjun.sleepdownschedule.feature.schedule.*
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentPeriodSettingsPatch
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -33,8 +31,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 
 private data class DayAgentPreferenceSnapshot(
     val hasDecision: Boolean,

@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.app.ui
 
-import com.xiaomanjun.sleepdownschedule.R
 import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -48,6 +47,7 @@ import com.kyant.backdrop.effects.blur
 import com.xiaomanjun.sleepdownschedule.AppState
 import com.xiaomanjun.sleepdownschedule.CourseScheduleApp
 import com.xiaomanjun.sleepdownschedule.CourseScheduleTheme
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.SettingsDetailActivity
 import com.xiaomanjun.sleepdownschedule.app.state.ScheduleViewModel
 import com.xiaomanjun.sleepdownschedule.app.state.ScheduleViewModelFactory

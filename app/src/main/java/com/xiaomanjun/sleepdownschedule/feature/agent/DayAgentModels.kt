@@ -1,26 +1,23 @@
 package com.xiaomanjun.sleepdownschedule.feature.agent
 
+import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.domain.agent.agentActionsHaveOverlappingCourseScopes
 import com.xiaomanjun.sleepdownschedule.domain.agent.agentPeriodFragment
+import com.xiaomanjun.sleepdownschedule.domain.schedule.ScheduleAdjustment
+import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeScheduleAdjustments
+import com.xiaomanjun.sleepdownschedule.domain.schedule.normalizeCourseClock
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentPeriodSettingsPatch
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-
-
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.ScheduleAdjustment
-import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeScheduleAdjustments
-import com.xiaomanjun.sleepdownschedule.domain.schedule.normalizeCourseClock
-
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 data class AgentWeatherSnapshot(
     val summary: String,

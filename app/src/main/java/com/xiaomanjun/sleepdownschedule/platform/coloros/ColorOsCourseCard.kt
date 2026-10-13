@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.platform.coloros
 
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
-
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Canvas
@@ -17,18 +15,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -42,6 +40,7 @@ import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeCourseCardMod
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeCourseCardRequest
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMenuTouchSource
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
 import java.lang.reflect.Method
 
 private const val CourseMaterialPreference = "coloros_course_material"

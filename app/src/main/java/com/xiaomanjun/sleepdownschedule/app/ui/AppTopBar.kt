@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.app.ui
 
-import com.xiaomanjun.sleepdownschedule.R
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.effects.blur
 import com.xiaomanjun.sleepdownschedule.AppState
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.HomeIconButton
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.TopBackButton
 import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture

@@ -1,13 +1,13 @@
 package com.xiaomanjun.sleepdownschedule.domain.agent
 
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.domain.schedule.captureOriginalPeriodTimes
+import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeCoursePeriodTimes
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
+import com.xiaomanjun.sleepdownschedule.domain.schedule.parseCoursePeriodTimes
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
 import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.parseCoursePeriodTimes
-import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeCoursePeriodTimes
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-import com.xiaomanjun.sleepdownschedule.domain.schedule.captureOriginalPeriodTimes
 
 /** Shared by preview and Room execution. A selection is a set of original week/period cells. */
 internal fun AgentValidatedAction.sourcePeriodSet(): Set<Int> =

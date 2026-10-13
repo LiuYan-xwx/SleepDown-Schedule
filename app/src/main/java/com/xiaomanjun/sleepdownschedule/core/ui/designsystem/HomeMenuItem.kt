@@ -29,7 +29,6 @@ import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeActionIcon
 import com.xiaomanjun.sleepdownschedule.glass.ui.glassForegroundColor
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.HomeAddMenuSelectionCornerDp
 import com.xiaomanjun.sleepdownschedule.glass.ui.glassUsesLightStyle
 
 @Composable

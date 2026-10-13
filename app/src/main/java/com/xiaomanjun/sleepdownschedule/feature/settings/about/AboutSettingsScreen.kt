@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.settings.about
 
-import com.xiaomanjun.sleepdownschedule.R
-import com.xiaomanjun.sleepdownschedule.BuildConfig
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -54,6 +52,8 @@ import androidx.core.net.toUri
 import com.kyant.backdrop.Backdrop
 import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.AppState
+import com.xiaomanjun.sleepdownschedule.BuildConfig
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.core.identity.currentIconResId
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.DockScrollPadding
 import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.detailContentTopPadding

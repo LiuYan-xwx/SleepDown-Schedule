@@ -1,9 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing
 
-import kotlinx.serialization.json.*
+import java.net.HttpURLConnection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.net.HttpURLConnection
+import kotlinx.serialization.json.*
 
 /** Logout/account replacement cancels streams and rejects late completed results. */
 internal object ChatGptInferenceSessions {

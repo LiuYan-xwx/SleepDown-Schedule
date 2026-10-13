@@ -10,12 +10,20 @@ import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
 
 /** The host owns the window; the form keeps validation and save state. */
 @Composable
-internal fun MaterialFormDialog(config: ScheduleConfigEntity, onDismissRequest: () -> Unit, visible: Boolean = true,
-    content: @Composable () -> Unit) {
+internal fun MaterialFormDialog(
+    config: ScheduleConfigEntity,
+    onDismissRequest: () -> Unit,
+    visible: Boolean = true,
+    content: @Composable () -> Unit
+) {
     val density = LocalDensity.current
     val maxHeight = with(density) { LocalWindowInfo.current.containerSize.height.toDp() * 0.82f }
-    if (LocalNativeAlertRenderer.current?.invoke(NativeAlertRequest("", "", emptyList(), appUsesDarkTheme(config),
-            onDismissRequest, maxHeight, false, content, visible, deferDismissUntilHost = true)) == true) return
+    if (LocalNativeAlertRenderer.current?.invoke(
+            NativeAlertRequest(
+                "", "", emptyList(), appUsesDarkTheme(config), onDismissRequest,
+                maxHeight, false, content, visible, deferDismissUntilHost = true
+            )
+        ) == true
+    ) return
     Dialog(onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false), content = content)
 }
-

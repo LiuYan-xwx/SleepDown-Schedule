@@ -1,6 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.settings
 
-import com.xiaomanjun.sleepdownschedule.R
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.EnterTransition
@@ -47,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
 import com.xiaomanjun.sleepdownschedule.AppState
 import com.xiaomanjun.sleepdownschedule.PeriodEntity
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.core.ui.chrome.TopGlassIconButton
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownDesignTokens

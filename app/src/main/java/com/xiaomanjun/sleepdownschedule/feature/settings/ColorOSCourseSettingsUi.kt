@@ -31,7 +31,6 @@ import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDivider
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsGroup
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsInfoRow
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsValueRow
-import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseBridge
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseComponentInstaller
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseContract
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseDiagnostics

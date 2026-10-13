@@ -1,27 +1,26 @@
 package com.xiaomanjun.sleepdownschedule.platform.coloros
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.palette.graphics.Palette
+import com.xiaomanjun.sleepdownschedule.R
+import com.xiaomanjun.sleepdownschedule.core.wallpaper.loadSampledBitmap
+import com.xiaomanjun.sleepdownschedule.model.DefaultWallpaperStyle
+import com.xiaomanjun.sleepdownschedule.model.ScheduleConfigEntity
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.xiaomanjun.sleepdownschedule.model.ScheduleConfigEntity
-import com.xiaomanjun.sleepdownschedule.model.DefaultWallpaperStyle
-import com.xiaomanjun.sleepdownschedule.core.wallpaper.loadSampledBitmap
-import com.xiaomanjun.sleepdownschedule.R
+import kotlinx.coroutines.withContext
 
 private val themeAccentCache = android.util.LruCache<String, Int>(6)
 private val themeAccentMutex = Mutex()

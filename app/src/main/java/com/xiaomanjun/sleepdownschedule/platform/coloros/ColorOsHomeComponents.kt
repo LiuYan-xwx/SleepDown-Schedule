@@ -1,27 +1,21 @@
 package com.xiaomanjun.sleepdownschedule.platform.coloros
 
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeOverflowMenu
-
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeDockAccent
-
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
-
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
-import android.graphics.drawable.DrawableWrapper
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.DrawableWrapper
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -29,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.xiaomanjun.sleepdownschedule.R
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeDockAccent
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeOverflowMenu
 import java.lang.reflect.Method
 
 private const val NavigationItem =

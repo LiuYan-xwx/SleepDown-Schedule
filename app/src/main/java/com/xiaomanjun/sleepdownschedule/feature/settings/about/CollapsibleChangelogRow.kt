@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.settings.about
 
-import com.xiaomanjun.sleepdownschedule.R
-import com.xiaomanjun.sleepdownschedule.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,6 +34,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xiaomanjun.sleepdownschedule.BuildConfig
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.LocalGlassMiuixEnabled
 import com.xiaomanjun.sleepdownschedule.feature.settings.title
 import kotlinx.coroutines.flow.map

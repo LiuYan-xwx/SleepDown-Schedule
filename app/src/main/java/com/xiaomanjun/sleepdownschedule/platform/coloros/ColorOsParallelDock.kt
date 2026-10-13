@@ -1,11 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.platform.coloros
 
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeButtonAccent
-
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeDockAccent
-
-import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
-
 import android.content.Context
 import android.content.res.ColorStateList
 import android.view.Gravity
@@ -47,6 +41,9 @@ import androidx.core.content.ContextCompat
 import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.core.ui.interaction.dockImeCompensationPx
 import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeButtonAccent
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeDockAccent
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
 import com.xiaomanjun.sleepdownschedule.glass.withRecordingDensity
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean

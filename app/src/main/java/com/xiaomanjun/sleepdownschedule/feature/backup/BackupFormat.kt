@@ -1,10 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.backup
 
-import com.xiaomanjun.sleepdownschedule.model.AppIconPreferencesSnapshot
 import com.xiaomanjun.sleepdownschedule.*
-
-import kotlinx.serialization.Serializable
+import com.xiaomanjun.sleepdownschedule.model.AppIconPreferencesSnapshot
 import java.util.UUID
+import kotlinx.serialization.Serializable
 
 /**
  * Stable, Room-independent identifiers used inside a .sleepdown archive.

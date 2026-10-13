@@ -1,7 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.app.ui
 
-import com.xiaomanjun.sleepdownschedule.R
-import com.xiaomanjun.sleepdownschedule.BuildConfig
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -123,6 +121,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.effects.blur
 import com.kyant.shapes.RoundedRectangle
+import com.xiaomanjun.sleepdownschedule.BuildConfig
 import com.xiaomanjun.sleepdownschedule.CourseCardColorMode
 import com.xiaomanjun.sleepdownschedule.CourseEntity
 import com.xiaomanjun.sleepdownschedule.CourseManagementActivity
@@ -132,6 +131,7 @@ import com.xiaomanjun.sleepdownschedule.EduSchoolSelectActivity
 import com.xiaomanjun.sleepdownschedule.HomeStartMode
 import com.xiaomanjun.sleepdownschedule.ImportDraftSource
 import com.xiaomanjun.sleepdownschedule.QuickSheetSettingsDetailActivity
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.SettingsDetailActivity
 import com.xiaomanjun.sleepdownschedule.WeekParity
@@ -186,6 +186,9 @@ import com.xiaomanjun.sleepdownschedule.core.ui.settings.LocalSettingsSharedGrad
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsSharedGradient
 import com.xiaomanjun.sleepdownschedule.defaultConfig
 import com.xiaomanjun.sleepdownschedule.defaultPeriods
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentActionHandler
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
 import com.xiaomanjun.sleepdownschedule.domain.course.conflictWeeksForAddedCourses
 import com.xiaomanjun.sleepdownschedule.domain.course.conflictWeeksForEditedCourseGroup
 import com.xiaomanjun.sleepdownschedule.domain.course.conflictWeeksForSingleWeekEdit
@@ -194,10 +197,6 @@ import com.xiaomanjun.sleepdownschedule.domain.schedule.formatScheduleDate
 import com.xiaomanjun.sleepdownschedule.domain.schedule.previewCourseEdits
 import com.xiaomanjun.sleepdownschedule.domain.schedule.scheduleAdjustmentForDate
 import com.xiaomanjun.sleepdownschedule.effectiveCurrentWeek
-import com.xiaomanjun.sleepdownschedule.domain.agent.AgentActionHandler
-import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
-import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
-import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentBackgroundZoomRestScale
 import com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentCountdownCinematicState
 import com.xiaomanjun.sleepdownschedule.feature.agent.DayAgentPreferences
@@ -379,6 +378,7 @@ import com.xiaomanjun.sleepdownschedule.glass.ui.resolvedCourseCardPalette
 import com.xiaomanjun.sleepdownschedule.isAfterScheduleTerm
 import com.xiaomanjun.sleepdownschedule.isBeforeScheduleTerm
 import com.xiaomanjun.sleepdownschedule.model.HomeMode
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.model.toHomeMode
 import com.xiaomanjun.sleepdownschedule.parseScheduleDate
 import com.xiaomanjun.sleepdownschedule.periodCount
