@@ -1,6 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.settings
 
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.drawContinuousRoundRect
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SleepDownLiquidDropdownPreference
+import com.xiaomanjun.sleepdownschedule.model.VisualEffectMode
 
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
@@ -103,13 +106,14 @@ private fun homeChromeBlurSliderFromScale(scale: Float): Float {
 }
 
 @Composable
-fun LiquidGlassSettingsScreen(
+fun VisualEffectsSettingsScreen(
     state: AppState,
     backdrop: Backdrop?,
     onUpdateBlurScale: (Float) -> Unit
 ) {
     val superPerformance = com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance
-    if (superPerformance) {
+    val effects = LocalVisualEffects.current
+    if (superPerformance && !effects.colorOsAvailable) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("超级性能模式下不可用", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -141,59 +145,86 @@ fun LiquidGlassSettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        item(key = "liquid-glass-preview") {
-            LiquidGlassDockPreview(
-                config = previewConfig,
-                darkTheme = darkTheme
-            )
+        if (effects.colorOsAvailable) {
+            item(key = "visual-effect-mode") {
+                SleepDownLiquidDropdownPreference(
+                    title = "视效模式",
+                    summary = if (effects.usesNativeControls) "使用 ColorOS 17 系统控件与凝光材质" else "使用液态玻璃材质",
+                    items = listOf(VisualEffectMode.LiquidGlass.label, VisualEffectMode.ColorOsGlow.label),
+                    selectedIndex = if (effects.usesNativeControls) 1 else 0,
+                    backdrop = backdrop,
+                    config = state.config,
+                    onSelectedIndexChange = { index ->
+                        effects.selectMode(if (index == 1) VisualEffectMode.ColorOsGlow else VisualEffectMode.LiquidGlass)
+                    }
+                )
+            }
         }
-        item(key = "liquid-glass-blur") {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        if (effects.usesNativeControls || superPerformance) {
+            item(key = "visual-effect-details") {
+                Text(
+                    text = if (effects.usesNativeControls) "课程卡片的凝光着色和模糊可在首页个性化中调整。"
+                        else "超级性能模式下不可用",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        } else {
+            item(key = "liquid-glass-preview") {
+                LiquidGlassDockPreview(
+                    config = previewConfig,
+                    darkTheme = darkTheme
+                )
+            }
+            item(key = "liquid-glass-blur") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    GlassBlurEndpointIcon(
-                        filled = false,
-                        modifier = Modifier.semantics { contentDescription = "更通透" }
-                    )
-                    LiquidControlSlider(
-                        value = homeChromeBlurSliderFromScale(previewBlurScale),
-                        onValueChange = { position ->
-                            val next = anchoredHomeChromeBlurScale(
-                                homeChromeBlurScaleFromSlider(position)
-                            )
-                            previewBlurScale = next
-                            onUpdateBlurScale(next)
-                        },
-                        onLiveValueChange = { position ->
-                            previewBlurScale = anchoredHomeChromeBlurScale(
-                                homeChromeBlurScaleFromSlider(position)
-                            )
-                        },
-                        valueRange = 0f..1f,
-                        snapValue = HomeChromeBlurSliderAnchor,
-                        visibilityThreshold = HomeChromeBlurSliderSnapThreshold,
-                        backdrop = backdrop,
-                        modifier = Modifier.weight(1f)
-                    )
-                    GlassBlurEndpointIcon(
-                        filled = true,
-                        modifier = Modifier.semantics { contentDescription = "更模糊" }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GlassBlurEndpointIcon(
+                            filled = false,
+                            modifier = Modifier.semantics { contentDescription = "更通透" }
+                        )
+                        LiquidControlSlider(
+                            value = homeChromeBlurSliderFromScale(previewBlurScale),
+                            onValueChange = { position ->
+                                val next = anchoredHomeChromeBlurScale(
+                                    homeChromeBlurScaleFromSlider(position)
+                                )
+                                previewBlurScale = next
+                                onUpdateBlurScale(next)
+                            },
+                            onLiveValueChange = { position ->
+                                previewBlurScale = anchoredHomeChromeBlurScale(
+                                    homeChromeBlurScaleFromSlider(position)
+                                )
+                            },
+                            valueRange = 0f..1f,
+                            snapValue = HomeChromeBlurSliderAnchor,
+                            visibilityThreshold = HomeChromeBlurSliderSnapThreshold,
+                            backdrop = backdrop,
+                            modifier = Modifier.weight(1f)
+                        )
+                        GlassBlurEndpointIcon(
+                            filled = true,
+                            modifier = Modifier.semantics { contentDescription = "更模糊" }
+                        )
+                    }
+                    Text(
+                        text = "清透会更加透明；着色会提高不透明度，为内容和控件增加对比度",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
-                Text(
-                    text = "清透会更加透明；着色会提高不透明度，为内容和控件增加对比度",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
             }
         }
     }

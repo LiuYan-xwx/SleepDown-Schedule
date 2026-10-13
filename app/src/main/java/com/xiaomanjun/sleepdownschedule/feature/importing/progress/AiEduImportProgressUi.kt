@@ -1,5 +1,6 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing.progress
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.controlAccentColor
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
@@ -864,7 +865,7 @@ private fun AiEduCaptureConfirmation(
                 },
                 LiquidAlertAction(
                     progress.cancelActionLabel.ifBlank { "返回重抓" },
-                    LiquidAlertActionStyle.Secondary,
+                    LiquidAlertActionStyle.Cancel,
                     onClick = AiEduImportProgressSession::cancel
                 )
             )
@@ -895,7 +896,7 @@ private fun AiEduCaptureConfirmation(
                     },
                 LiquidAlertAction(
                     progress.cancelActionLabel.ifBlank { "返回重抓" },
-                    LiquidAlertActionStyle.Secondary,
+                    LiquidAlertActionStyle.Cancel,
                     onClick = AiEduImportProgressSession::cancel
                 )
             )
@@ -1433,7 +1434,7 @@ private fun AiEduAttachmentMorphOverlay(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(request.attachment.title, modifier = Modifier.weight(1f), color = textColor, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("完成", modifier = Modifier.clickable(onClick = ::dismiss).padding(12.dp), color = Color(0xFF0A84FF), fontWeight = FontWeight.SemiBold)
+                    Text("完成", modifier = Modifier.clickable(onClick = ::dismiss).padding(12.dp), color = controlAccentColor(Color(0xFF0A84FF)), fontWeight = FontWeight.SemiBold)
                 }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -1618,8 +1619,8 @@ private fun AiEduConversationComposer(
                         backdrop = backdrop,
                         modifier = Modifier.size(40.dp),
                         height = 40.dp,
-                        surfaceColor = Color(0xFF0A84FF).copy(alpha = 0.88f),
-                        tint = Color(0xFF0A84FF),
+                        surfaceColor = controlAccentColor(Color(0xFF0A84FF)).copy(alpha = 0.88f),
+                        tint = controlAccentColor(Color(0xFF0A84FF)),
                         contentPadding = PaddingValues(0.dp),
                         blurRadius = 4.dp,
                         lensHeight = 14.dp,
@@ -1632,7 +1633,7 @@ private fun AiEduConversationComposer(
                     }
                 } else {
                     Box(
-                        Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF0A84FF)).clickable {
+                        Modifier.size(40.dp).clip(CircleShape).background(controlAccentColor(Color(0xFF0A84FF))).clickable {
                             if (sending && canInterrupt && value.isBlank()) onStop() else onSend()
                         },
                         contentAlignment = Alignment.Center

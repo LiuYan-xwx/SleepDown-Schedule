@@ -1040,6 +1040,7 @@ private fun CourseEditorAnimatedContainer(
         muted = muted,
         flatOpacityOverride = flatEditorOpacity,
         expandedOutlineLight = expandedOutlineLight,
+        followTouch = true,
         modifier = modifier.graphicsLayer { this.alpha = alpha }.drawWithCache {
             // Keep the shell's outline in the parent recording across the fixed-allocation
             // handoff. Child RenderNodes may otherwise replay rectangular pixels for one frame

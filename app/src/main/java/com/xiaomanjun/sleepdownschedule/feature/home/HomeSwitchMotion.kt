@@ -61,12 +61,13 @@ private val SwitchPlainSlide = spring<Float>(dampingRatio = 1f, stiffness = 320f
 
 internal enum class HomeSwitchClip { None, Page, TopBar }
 
-/** Sparse pages stagger content; pages with more than ten cards move as a single surface. */
+/** ColorOS retains every follow track; legacy dense glass can use its existing page slide. */
 @Stable
 internal class HomeSwitchMotion(
     initialSecondary: Boolean,
     private val target: State<Boolean>,
     val landscape: Boolean = false,
+    private val fullMotion: Boolean = false,
     private val renderedCardCount: () -> Int = { 0 }
 ) {
     private val page = Animatable(if (initialSecondary) 1f else 0f)
@@ -82,8 +83,9 @@ internal class HomeSwitchMotion(
     // Cards subscribe to the chosen style, not the start/end flags themselves. Both branches
     // remain true for a dense page; forwarding running would recompose every unchanged card.
     val plainSlide: Boolean by derivedStateOf(structuralEqualityPolicy()) {
-        if (running) latchedPlainSlide else renderedCardCount() > 10
+        if (running) latchedPlainSlide else shouldUsePlainSlide()
     }
+    private fun shouldUsePlainSlide() = !fullMotion && renderedCardCount() > 10
     val progress: State<Float> = page.asState()
     val moving: Boolean get() = running || settledSecondary != target.value
 
@@ -110,7 +112,7 @@ internal class HomeSwitchMotion(
         else tracks[group.coerceIn(0, SwitchGroupCount - 1)].value
 
     suspend fun settleAt(secondary: Boolean) {
-        latchedPlainSlide = renderedCardCount() > 10
+        latchedPlainSlide = shouldUsePlainSlide()
         val destination = if (secondary) 1f else 0f
         page.snapTo(destination)
         tracks.forEach { it.snapTo(destination) }
@@ -121,7 +123,7 @@ internal class HomeSwitchMotion(
     }
 
     suspend fun animateTo(secondary: Boolean) {
-        if (!running) latchedPlainSlide = renderedCardCount() > 10
+        if (!running) latchedPlainSlide = shouldUsePlainSlide()
         val destination = if (secondary) 1f else 0f
         if (page.value == destination && pageVelocity == 0f &&
             tracks.all { it.value == destination } && velocities.all { it == 0f }) {
@@ -188,8 +190,9 @@ internal fun rememberHomeSwitchMotion(
     val latestCardCount = rememberUpdatedState(renderedCardCount)
     val configuration = LocalConfiguration.current
     val landscape = configuration.screenWidthDp > configuration.screenHeightDp
-    val motion = remember(label, landscape) {
-        HomeSwitchMotion(secondary, target, landscape) { latestCardCount.value() }
+    val fullMotion = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeCourseCardMode.current != null
+    val motion = remember(label, landscape, fullMotion) {
+        HomeSwitchMotion(secondary, target, landscape, fullMotion) { latestCardCount.value() }
     }
     LaunchedEffect(motion, secondary, animate) {
         if (animate) motion.animateTo(secondary) else motion.settleAt(secondary)

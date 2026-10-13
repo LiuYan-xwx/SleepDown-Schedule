@@ -522,7 +522,18 @@ internal fun HomeMenuDestinationOverlayHost(
             )
             val shape = RoundedRectangle(32.dp)
             val lightGlass = glassUsesLightStyle(state.config)
-            if (dialogBackdrop != null) {
+            val nativeSurface = shown.kind == HomeMenuDestinationKind.AddCourse &&
+                com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current?.invoke(
+                    com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+                        modifier = Modifier.fillMaxSize().glassBackdropProducer(surfaceBackdrop),
+                        shape = shape, dark = appUsesDarkTheme(state.config),
+                        role = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.HomeDock,
+                        edgeEffects = true, followTouch = true
+                    )
+                ) {} == true
+            if (nativeSurface) {
+                // Same form and transition shell; only the missing material is supplied here.
+            } else if (dialogBackdrop != null) {
                 LiquidPanel(
                     backdrop = dialogBackdrop,
                     modifier = Modifier.fillMaxSize().glassBackdropProducer(surfaceBackdrop),
@@ -538,11 +549,11 @@ internal fun HomeMenuDestinationOverlayHost(
             }
             Box(Modifier.fillMaxSize().clip(shape)) {
             when (shown.kind) {
-                HomeMenuDestinationKind.AddCourse -> NormalizedCourseEditorScreen(
+                HomeMenuDestinationKind.AddCourse -> AddCourseDockContent(state.config) { NormalizedCourseEditorScreen(
                     state = state, initialCourse = null, backdrop = surfaceBackdrop,
                     onCancel = onDismissRequest, onSave = {}, onSaveCourses = onAddCourses, onDelete = {},
                     onDismissHandlerChange = { dismissHandler = it }, pickerRenderInRootScaffold = false
-                )
+                ) }
                 HomeMenuDestinationKind.ManualImport -> NormalizedAiManualImportScreen(
                     state = state, backdrop = dialogBackdrop, onCancel = onDismissRequest,
                     captureHistoryBackground = captureHistoryBackground, onParsed = onManualImportParsed
@@ -984,7 +995,19 @@ internal fun HomeMenuDestinationOverlayHost(
             val lightGlass = glassUsesLightStyle(state.config)
             // Keep the material composed throughout Preparing and Opening. Mounting drawBackdrop
             // at the same frame the cached form hands off can flash text fields on some GPUs.
-            if (backdrop != null) {
+            val nativeSurface = shown.kind == HomeMenuDestinationKind.AddCourse &&
+                com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current?.invoke(
+                    com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+                        modifier = Modifier.fillMaxSize().glassBackdropProducer(destinationSurfaceBackdrop),
+                        shape = destinationShape, dark = appUsesDarkTheme(state.config),
+                        surfaceAlpha = { frame.value.destinationSurfaceAlpha },
+                        role = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.HomeDock,
+                        edgeEffects = true, followTouch = true
+                    )
+                ) {} == true
+            if (nativeSurface) {
+                // Remains mounted through source handoff, just like the fallback panel below.
+            } else if (backdrop != null) {
                 LiquidPanel(
                     backdrop = backdrop,
                     modifier = Modifier.fillMaxSize().glassBackdropProducer(destinationSurfaceBackdrop).graphicsLayer {
@@ -1113,7 +1136,7 @@ internal fun HomeMenuDestinationOverlayHost(
                         com.xiaomanjun.sleepdownschedule.glass.LocalGlassSampleRecordKey provides { shown }
                     ) {
                         when (shown.kind) {
-                            HomeMenuDestinationKind.AddCourse -> top.yukonga.miuix.kmp.basic.Scaffold(
+                            HomeMenuDestinationKind.AddCourse -> AddCourseDockContent(state.config) { top.yukonga.miuix.kmp.basic.Scaffold(
                                 modifier = Modifier.fillMaxSize(),
                                 containerColor = Color.Transparent,
                                 contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -1134,7 +1157,7 @@ internal fun HomeMenuDestinationOverlayHost(
                                     // that producer and is therefore the authoritative picker host.
                                     pickerRenderInRootScaffold = true
                                 )
-                            }
+                            } }
                             HomeMenuDestinationKind.ManualImport -> NormalizedAiManualImportScreen(
                                 state = state,
                                 backdrop = backdrop,
@@ -1243,4 +1266,17 @@ internal fun HomeMenuDestinationOverlayHost(
             }
         }
     }
+}
+
+/** Share the Dock's wallpaper contrast decision, including input values. */
+@Composable
+private fun AddCourseDockContent(config: ScheduleConfigEntity, content: @Composable () -> Unit) {
+    val style = com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsHomeChromeStyle.current
+    val native = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current != null
+    val foreground = if (!native) Color.Unspecified else style?.foreground?.let { Color(it) }
+        ?: if (style?.dark ?: appUsesDarkTheme(config)) Color.White else Color.Black
+    CompositionLocalProvider(
+        com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialForeground provides foreground,
+        content = content
+    )
 }

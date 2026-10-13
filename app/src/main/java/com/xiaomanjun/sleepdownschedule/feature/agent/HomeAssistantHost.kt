@@ -187,7 +187,7 @@ internal fun HomeAssistantHost(
             title = "启用 AI 助理？",
             message = "下拉首页即可与助手对话。课程提醒与倒计时在本机计算，对话和文件解析使用你选择的 AI 服务。",
             actions = listOf(
-                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Cancel) {
                     DayAgentPreferences.setEnabled(context, false); controller.reset()
                 },
                 LiquidAlertAction("启用", LiquidAlertActionStyle.Primary) { DayAgentPreferences.setEnabled(context, true) }
@@ -275,6 +275,7 @@ internal fun HomeAssistantHost(
             BackHandler(controller.stage == HomeAssistantStage.Reminder) { controller.closing = true }
             TopAssistantSurface(
                 backdrop, state.config, RoundedRectangle(with(density) { (screenCornerPx - edgeInset.toPx()).coerceAtLeast(16.dp.toPx()).toDp() }),
+                nativeMaterial = true,
                 modifier = Modifier.offset {
                     val rect = reminderGeometry()
                     IntOffset(rect.left.roundToInt(), rect.top.roundToInt())

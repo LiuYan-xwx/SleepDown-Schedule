@@ -1252,7 +1252,7 @@ fun ApplyCourseEditDialog(
         actions = buildList {
             if (singleAllowed) add(LiquidAlertAction("仅本次", LiquidAlertActionStyle.Primary, onClick = onSingle))
             add(LiquidAlertAction("应用全部", LiquidAlertActionStyle.Secondary, onClick = onAll))
-            add(LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = onCancel))
+            add(LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = onCancel))
         },
         backdrop = backdrop,
         config = config,
@@ -1278,7 +1278,7 @@ fun CourseConflictRetentionDialog(
             ?: "“${course.name}”在${weekSummary}与其他课程重合。可以暂时保留；保存后会跳到首个冲突周，点课程上的“冲突”即可移到最近空位。",
         actions = listOf(
             LiquidAlertAction("暂时保留", LiquidAlertActionStyle.Primary, onClick = onKeepTemporarily),
-            LiquidAlertAction("返回修改", LiquidAlertActionStyle.Secondary, onClick = onReturn)
+            LiquidAlertAction("返回修改", LiquidAlertActionStyle.Cancel, onClick = onReturn)
         ),
         backdrop = backdrop,
         config = config,
@@ -1308,10 +1308,10 @@ fun ApplyCourseDeleteDialog(
         },
         actions = buildList {
             if (courseEditorHasOccurrence(course, targetWeek)) {
-                add(LiquidAlertAction("仅删除本次", LiquidAlertActionStyle.Primary, onClick = onSingle))
+                add(LiquidAlertAction("仅删除本次", LiquidAlertActionStyle.Destructive, onClick = onSingle))
             }
             add(LiquidAlertAction("删除全部", LiquidAlertActionStyle.Destructive, onClick = onAll))
-            add(LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = onCancel))
+            add(LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = onCancel))
         },
         backdrop = backdrop,
         config = config,

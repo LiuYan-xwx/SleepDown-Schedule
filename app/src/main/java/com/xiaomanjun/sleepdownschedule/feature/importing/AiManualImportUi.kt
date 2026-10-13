@@ -696,7 +696,7 @@ fun NormalizedAiManualImportScreen(
             actions = listOf(
                 LiquidAlertAction(
                     "取消",
-                    LiquidAlertActionStyle.Secondary,
+                    LiquidAlertActionStyle.Cancel,
                     onClick = { showAiTokenRepairPrompt = false }
                 ),
                 LiquidAlertAction(
@@ -742,10 +742,10 @@ private fun AiManualImportDialogContent(
     onOpenHistoryEntry: (AiImportHistoryEntry, Rect) -> Unit,
     onPrimaryAction: () -> Unit
 ) {
-    // This destination is rendered directly on the Home glass/backdrop. Its complete foreground
-    // domain must therefore follow that glass, independently from the application day/night mode.
-    val textColor = glassForegroundColor(state.config)
-    val dialogLightStyle = glassUsesLightStyle(state.config)
+    val nativeSurface = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeDialogSurface.current
+    // Native centered surfaces follow the app theme; wallpaper glass keeps its existing contrast.
+    val textColor = if (nativeSurface) appPanelForegroundColor(state.config) else glassForegroundColor(state.config)
+    val dialogLightStyle = if (nativeSurface) !appUsesDarkTheme(state.config) else glassUsesLightStyle(state.config)
     val windowSize = currentWindowSizeDp()
     val safeInsets = WindowInsets.safeDrawing.asPaddingValues()
     val safeHeight = (

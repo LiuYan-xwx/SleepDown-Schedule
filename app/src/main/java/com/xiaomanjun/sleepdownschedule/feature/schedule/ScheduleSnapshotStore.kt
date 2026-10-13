@@ -20,8 +20,8 @@ import java.io.FileOutputStream
 
 /** Disk is only a second-level visual cache; Room entities remain bitmap-free. */
 object ScheduleSnapshotStore {
-    // v3 invalidates snapshots produced before the picker moved to an isolated Popup layer.
-    private fun directory(context: Context): File = File(context.filesDir, "schedule_snapshots_v3").apply { mkdirs() }
+    // v4 includes native home chrome in the page capture; old previews omitted the COUI Dock.
+    private fun directory(context: Context): File = File(context.filesDir, "schedule_snapshots_v4").apply { mkdirs() }
 
     fun file(context: Context, scheduleId: Int): File = File(directory(context), "schedule-$scheduleId.jpg")
 

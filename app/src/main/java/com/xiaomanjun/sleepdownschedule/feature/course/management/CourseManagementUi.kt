@@ -839,7 +839,7 @@ internal fun CourseManagementDetailPage(
                 actions = listOf(
                     LiquidAlertAction(
                         label = "继续编辑",
-                        style = LiquidAlertActionStyle.Secondary,
+                        style = LiquidAlertActionStyle.Cancel,
                         onClick = {
                             validationMessage = null
                             pendingExitAction = null
@@ -874,7 +874,7 @@ internal fun CourseManagementDetailPage(
                 actions = listOf(
                     LiquidAlertAction(
                         label = "取消",
-                        style = LiquidAlertActionStyle.Secondary,
+                        style = LiquidAlertActionStyle.Cancel,
                         onClick = {
                             pending.cancel()
                             pendingDelete = null

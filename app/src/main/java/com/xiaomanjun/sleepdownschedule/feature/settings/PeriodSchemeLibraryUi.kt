@@ -221,7 +221,7 @@ fun PeriodSchemeManagementScreen(
 
     deleting?.let { saved ->
         LiquidAlertDialog("删除作息", "删除“${saved.name}”？正在被课表引用的作息不能删除，请先在相关课表中选择其他作息。",
-            listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = { deleting = null }),
+            listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = { deleting = null }),
                 LiquidAlertAction("删除", LiquidAlertActionStyle.Destructive, enabled = !busy, onClick = {
                     busy = true
                     scope.launch {

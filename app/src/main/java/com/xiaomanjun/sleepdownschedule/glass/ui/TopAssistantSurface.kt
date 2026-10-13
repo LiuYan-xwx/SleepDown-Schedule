@@ -141,6 +141,7 @@ internal fun TopAssistantSurface(
     shapeProvider: (() -> Shape)? = null,
     surfaceFrame: (() -> Pair<Dp, Float>)? = null,
     materialEnabled: Boolean = true,
+    nativeMaterial: Boolean = false,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
     Box(
@@ -160,6 +161,8 @@ internal fun TopAssistantSurface(
         } else Modifier)
     ) {
         if (materialEnabled) GlassSurface(
+            nativeMaterial = nativeMaterial,
+            nativeDark = true,
             backdrop = backdrop,
             config = config,
             modifier = Modifier.matchParentSize(),

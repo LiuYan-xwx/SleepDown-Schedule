@@ -421,12 +421,13 @@ fun BackupRestorePreviewScreen(
             },
             message = replacementMessage,
             actions = listOf(
-                LiquidAlertAction("返回检查", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("返回检查", LiquidAlertActionStyle.Cancel) {
                     showReplaceConfirmation = false
                 },
                 LiquidAlertAction(
                     if (report.requiresExplicitReplaceConfirmation) "替换并恢复" else "确认恢复",
-                    LiquidAlertActionStyle.Destructive
+                    if (report.requiresExplicitReplaceConfirmation) LiquidAlertActionStyle.Destructive
+                    else LiquidAlertActionStyle.Primary
                 ) {
                     showReplaceConfirmation = false
                     restorePreview(previewState)

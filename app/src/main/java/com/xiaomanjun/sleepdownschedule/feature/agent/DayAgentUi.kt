@@ -1,5 +1,6 @@
 package com.xiaomanjun.sleepdownschedule.feature.agent
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.controlAccentColor
 import androidx.compose.ui.graphics.luminance
 
 import com.xiaomanjun.sleepdownschedule.feature.agent.background.*
@@ -409,7 +410,7 @@ fun TodayAgentHost(
             title = "启用 AI 助理？",
             message = "AI 助理会在日视图显示下一节课、实时倒计时与天气。课程和倒计时均在本地计算；绑定 API Key 后，点击卡片可以继续对话。你可以随时在 AI 助理设置中关闭。",
             actions = listOf(
-                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Cancel) {
                     DayAgentPreferences.setEnabled(context, false)
                     enabled = false
                     hasDecision = true
@@ -767,15 +768,16 @@ fun TodayAgentCard(
             )
             .homeCountdownShockwave()
     ) {
-        // This is the one real glass shell. It is a sibling of the interactive content, so its
-        // compact card-sized texture can safely feed the LiquidButtons without recursive capture.
+        // Keep one material shell. Native content uses COUI's light instead of the legacy dim.
         GlassSurface(
+            nativeMaterial = true,
+            nativeDockMaterial = true,
             backdrop = backdrop,
             config = state.config,
-            modifier = Modifier.matchParentSize(),
+            modifier = Modifier.fillMaxWidth(),
             shape = cardShape,
             tokens = cardTokens
-        ) {}
+        ) {
         Box(
             modifier = Modifier.graphicsLayer {
                 alpha = sourceHandoffTransform?.let {
@@ -803,7 +805,7 @@ fun TodayAgentCard(
                     { permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
                 } else null
             )
-            if (sourceCardPressed) {
+            if (sourceCardPressed && !com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceActive.current) {
                 Box(
                     Modifier
                         .matchParentSize()
@@ -813,6 +815,7 @@ fun TodayAgentCard(
                         )
                 )
             }
+        }
         }
     }
 
@@ -905,11 +908,12 @@ private fun AgentOperationLiquidButton(
     }
     val bgColor = when {
         destructive -> Color(0xFFFF453A)
-        else -> Color(0xFF0A84FF)
+        else -> controlAccentColor(Color(0xFF0A84FF))
     }
     if (backdrop != null) {
         LiquidButton(
             onClick = { if (!applied && enabled) onClick() },
+            enabled = !applied && enabled,
             backdrop = backdrop,
             modifier = modifier,
             height = 42.dp,
@@ -965,6 +969,7 @@ private fun AgentSimplePressSurface(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     GlassSurface(
+        nativeMaterial = true,
         backdrop = backdrop,
         config = config,
         modifier = modifier.clickable(
@@ -977,13 +982,14 @@ private fun AgentSimplePressSurface(
         tokens = tokens
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            Box(
+            val nativeMaterial = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceActive.current
+            if (!nativeMaterial) Box(
                 Modifier
                     .matchParentSize()
                     .background(Color.Black.copy(alpha = 0.055f), shape)
             )
             content()
-            if (pressed) {
+            if (pressed && !nativeMaterial) {
                 Box(
                     Modifier
                         .matchParentSize()
@@ -1932,6 +1938,7 @@ internal fun DayAgentConversationDialog(
             ) {
                 TopAssistantSurface(
                     backdrop, state.config, androidx.compose.ui.graphics.RectangleShape,
+                    nativeMaterial = true,
                     modifier = Modifier.matchParentSize(),
                     morphAllocation = homeSurfaceAllocation.takeUnless { homeFullScreenSettled },
                     shapeProvider = if (homeFullScreenSettled) null else ::homeShellShape,
@@ -1980,6 +1987,8 @@ internal fun DayAgentConversationDialog(
              ) {
                 if (!homePresentation) {
                 GlassSurface(
+                    nativeMaterial = true,
+                    nativeDockMaterial = true,
                     backdrop = backdrop,
                     config = state.config,
                     modifier = Modifier.matchParentSize(),
@@ -2817,33 +2826,17 @@ private fun AgentWindowIconButton(
     ) {
     val buttonSize = SleepDownDesignTokens.SecondaryPage.BackButtonSize
     val buttonModifier = Modifier.size(buttonSize)
-    if (backdrop != null) {
-        LiquidButton(
-            onClick = onClick,
-            backdrop = backdrop,
-            modifier = buttonModifier,
-            height = buttonSize,
-            clickTargetEnabled = false,
-            contentPadding = PaddingValues(0.dp),
-            shape = Capsule(),
-            blurRadius = 6.dp,
-            lensHeight = 12.dp,
-            lensAmount = 18.dp,
-            chromaticAberration = false,
-            surfaceColor = Color.White.copy(alpha = 0.10f),
-            tint = Color.White,
-            shadowEnabled = false
-        ) { glyph() }
-    } else {
         GlassSurface(
-            backdrop = null,
+            nativeMaterial = true,
+            nativeDark = true,
+            backdrop = backdrop,
             config = config,
             modifier = buttonModifier.clip(CircleShape),
             shape = Capsule(),
-            tokens = GlassTokens.dialog().copy(surfaceAlpha = 0.10f, shadowAlpha = 0f),
+            tokens = GlassTokens.dialog().copy(blur = 6.dp, lensHeight = 12.dp, lensAmount = 18.dp,
+                chromaticAberration = false, surfaceAlpha = 0.10f, shadowAlpha = 0f),
             baseSurfaceColorOverride = Color.White
         ) { glyph() }
-    }
     }
 }
 
@@ -2921,6 +2914,13 @@ private fun AgentInputLiquidCapsule(
     heightOverride: Dp? = null,
     content: @Composable () -> Unit
 ) {
+    val dockHeight = heightOverride ?: if (expanded) 94.dp else 56.dp
+    val nativeSurface = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current
+    if (nativeSurface?.invoke(com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+        modifier = modifier.height(dockHeight), shape = shape, dark = foreground.luminance() > 0.5f,
+        surfaceAlpha = surfaceVisibility
+    )) { Box(Modifier.fillMaxSize()) { content() } } == true) return
+
     val interactionScope = rememberCoroutineScope()
     val currentInteractionEnabledAt = rememberUpdatedState(interactionEnabledAt)
     val interactiveHighlight = remember(interactionScope, sharedInteractiveHighlight) {
@@ -2930,7 +2930,6 @@ private fun AgentInputLiquidCapsule(
             acceptsGesture = { size, offset -> currentInteractionEnabledAt.value(size, offset) }
         )
     }
-    val dockHeight = heightOverride ?: if (expanded) 94.dp else 56.dp
     val pressExpansion = 1.5.dp
     val surfaceBase = if (com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isSuperPerformance)
         com.xiaomanjun.sleepdownschedule.glass.flatControlColor(foreground.luminance() > 0.5f)
@@ -3106,8 +3105,8 @@ private fun AgentSendLiquidButton(
             lensHeight = 14.dp,
             lensAmount = 20.dp,
             chromaticAberration = false,
-            tint = Color(0xFF0A84FF),
-            surfaceColor = Color(0xFF0A84FF).copy(alpha = 0.82f),
+            tint = controlAccentColor(Color(0xFF0A84FF)),
+            surfaceColor = controlAccentColor(Color(0xFF0A84FF)).copy(alpha = 0.82f),
             shadowEnabled = true
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -3119,7 +3118,7 @@ private fun AgentSendLiquidButton(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF0A84FF).copy(alpha = 0.90f))
+                .background(controlAccentColor(Color(0xFF0A84FF)).copy(alpha = 0.90f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

@@ -131,6 +131,16 @@ fun CourseScheduleTheme(
     config: ScheduleConfigEntity = defaultConfig(),
     content: @Composable () -> Unit
 ) {
+    com.xiaomanjun.sleepdownschedule.app.ui.ProvideVisualEffects {
+        CourseScheduleThemeContent(config, content)
+    }
+}
+
+@Composable
+private fun CourseScheduleThemeContent(
+    config: ScheduleConfigEntity,
+    content: @Composable () -> Unit
+) {
     val darkTheme = appUsesDarkTheme(config)
     val view = LocalView.current
     LaunchedEffect(config.followSystemDarkMode, darkTheme, view.context) {
@@ -167,9 +177,11 @@ fun CourseScheduleTheme(
                 if (darkTheme) 0 else android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         }
     }
-    val blue = Color(0xFF007AFF)
-    val blueContainer = Color(0xFFD6E9FF)
-    val darkBlueContainer = Color(0xFF003A66)
+    val native = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects.current.usesNativeControls
+    val blue = if (native) Color(com.xiaomanjun.sleepdownschedule.coloros.rememberColorOsThemeAccent(config, darkTheme))
+        else Color(0xFF007AFF)
+    val blueContainer = if (native) androidx.compose.ui.graphics.lerp(blue, Color.White, 0.84f) else Color(0xFFD6E9FF)
+    val darkBlueContainer = if (native) androidx.compose.ui.graphics.lerp(blue, Color.Black, 0.55f) else Color(0xFF003A66)
     MaterialTheme(
         shapes = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownContinuousShapes,
         colorScheme = if (darkTheme) {
@@ -177,7 +189,7 @@ fun CourseScheduleTheme(
                 primary = blue,
                 onPrimary = Color.White,
                 primaryContainer = darkBlueContainer,
-                onPrimaryContainer = Color(0xFFD6E9FF),
+                onPrimaryContainer = blueContainer,
                 secondary = blue,
                 secondaryContainer = darkBlueContainer,
                 tertiary = blue,
@@ -192,7 +204,7 @@ fun CourseScheduleTheme(
                 primary = blue,
                 onPrimary = Color.White,
                 primaryContainer = blueContainer,
-                onPrimaryContainer = Color(0xFF003A66),
+                onPrimaryContainer = darkBlueContainer,
                 secondary = blue,
                 secondaryContainer = blueContainer,
                 tertiary = blue,

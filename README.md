@@ -142,12 +142,6 @@ Android 工程通过 composite build 使用官方 Miuix `v0.9.3` 加本仓库补
 git clone --branch v0.9.3 --depth 1 https://github.com/compose-miuix-ui/miuix.git ../miuix-reference
 $miuixPatchRoot = (Resolve-Path ./patches).Path
 git -C ../miuix-reference apply "$miuixPatchRoot/miuix-0.9.3-sleepdown.patch"
-git -C ../miuix-reference apply "$miuixPatchRoot/miuix-cascading-popup-surface.patch"
-git -C ../miuix-reference apply "$miuixPatchRoot/miuix-scaffold-underlay.patch"
-git -C ../miuix-reference apply "$miuixPatchRoot/miuix-compact-dropdown.patch"
-git -C ../miuix-reference apply "$miuixPatchRoot/miuix-popup-slide-feedback.patch"
-git -C ../miuix-reference apply "$miuixPatchRoot/miuix-popup-hover-layout.patch"
-git -C ../miuix-reference apply "$miuixPatchRoot/miuix-cascading-anchor-morph.patch"
 $miuixSourceRoot = (Resolve-Path ../miuix-reference).Path
 .\gradlew.bat assembleGithubDebug "-Psleepdown.miuixSourcePath=$miuixSourceRoot"
 ```
@@ -175,13 +169,7 @@ CourseSchedule/
 ├── benchmark/                                # Macrobenchmark 与 Baseline Profile
 ├── docs/                                     # 版本说明、性能基线和节次方案文档
 ├── patches/miuix-0.9.3-sleepdown.patch      # Miuix 基础组合构建补丁
-├── patches/miuix-cascading-popup-surface.patch
 │                                           # 级联菜单玻璃表面扩展
-├── patches/miuix-scaffold-underlay.patch     # 页面采样层与弹窗宿主分离
-├── patches/miuix-compact-dropdown.patch      # 下拉菜单局部紧凑排版接口
-├── patches/miuix-popup-slide-feedback.patch  # Popup 滑动选择与交互材质接口
-├── patches/miuix-popup-hover-layout.patch    # Popup 悬停级联、长列表与紧凑排版
-├── patches/miuix-cascading-anchor-morph.patch # 模型选单复用设置 Popup 锚点动效
 ├── THIRD_PARTY_NOTICES.md                    # 第三方代码与许可声明
 └── gradlew / gradlew.bat                     # Gradle Wrapper
 ```

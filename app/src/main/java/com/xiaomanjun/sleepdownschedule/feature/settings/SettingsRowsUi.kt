@@ -229,6 +229,11 @@ fun LiquidOptionTabs(
     followAppTheme: Boolean = false,
     onSelected: (Int) -> Unit
 ) {
+    if (com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeSegmentRenderer.current?.invoke(
+            com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeSegmentRequest(
+                labels, selectedIndex, onSelected, Modifier.width(width),
+                dark = if (followAppTheme) appUsesDarkTheme(config) else !glassUsesLightStyle(config)
+            )) == true) return
     if (backdrop != null) {
         val tabContentColor = if (followAppTheme) {
             appPanelForegroundColor(config)
@@ -480,12 +485,13 @@ internal fun SettingsForwardIndicator(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun SettingsToggleRow(title: String, subtitle: String, checked: Boolean, backdrop: Backdrop?, enabled: Boolean = true, badgeText: String? = null, onCheckedChange: (Boolean) -> Unit) {
+fun SettingsToggleRow(title: String, subtitle: String, checked: Boolean, backdrop: Backdrop?, enabled: Boolean = true, badgeText: String? = null, compact: Boolean = false, onCheckedChange: (Boolean) -> Unit) {
     if (LocalGlassMiuixEnabled.current) {
         GlassMiuixInteractivePreference(
             title = title,
             summary = subtitle.takeIf { it.isNotBlank() },
             badgeText = badgeText,
+            compact = compact,
             controlWidth = 52.dp,
             controlHeight = 24.dp,
             enabled = enabled
@@ -497,9 +503,9 @@ fun SettingsToggleRow(title: String, subtitle: String, checked: Boolean, backdro
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (subtitle.isBlank()) 56.dp else 76.dp)
+            .heightIn(min = if (compact) 52.dp else if (subtitle.isBlank()) 56.dp else 76.dp)
             .graphicsLayer(alpha = if (enabled) 1f else 0.48f)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = if (compact) 4.dp else 20.dp, vertical = if (compact) 8.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
@@ -592,7 +598,8 @@ fun SettingsTextFieldRow(
     keyboardType: KeyboardType = KeyboardType.Text,
     enabled: Boolean = true,
     placeholder: String = "",
-    moveCursorToEndOnFocus: Boolean = false
+    moveCursorToEndOnFocus: Boolean = false,
+    compact: Boolean = false
 ) {
     val context = LocalContext.current
     val isTimePicker = keyboardType == KeyboardType.Text && value.matches(Regex("\\d{1,2}:\\d{2}"))
@@ -620,7 +627,7 @@ fun SettingsTextFieldRow(
             title = title,
             enabled = enabled,
             modifier = Modifier.fillMaxWidth(),
-            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            insideMargin = PaddingValues(horizontal = if (compact) 4.dp else 14.dp, vertical = if (compact) 8.dp else 12.dp),
             endActions = {
                 SettingsInlineTextField(
                     value = value,
@@ -641,9 +648,9 @@ fun SettingsTextFieldRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(if (compact) 52.dp else 64.dp)
             .graphicsLayer(alpha = if (enabled) 1f else 0.48f)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = if (compact) 4.dp else 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -832,7 +839,8 @@ fun SettingsPickerValueRow(
     value: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    compact: Boolean = false
 ) {
     if (LocalGlassMiuixEnabled.current) {
         MiuixArrowPreference(
@@ -849,17 +857,17 @@ fun SettingsPickerValueRow(
             onClick = onClick,
             enabled = enabled,
             modifier = modifier.fillMaxWidth(),
-            insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+            insideMargin = PaddingValues(horizontal = if (compact) 4.dp else 14.dp, vertical = if (compact) 8.dp else 12.dp)
         )
         return
     }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(58.dp)
+            .height(if (compact) 52.dp else 58.dp)
             .graphicsLayer(alpha = if (enabled) 1f else 0.48f)
             .clickable(enabled = enabled, interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = if (compact) 4.dp else 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -1541,6 +1549,7 @@ private fun GlassMiuixInteractivePreference(
     controlHeight: Dp = 42.dp,
     enabled: Boolean = true,
     badgeText: String? = null,
+    compact: Boolean = false,
     content: @Composable () -> Unit
 ) {
     MiuixBasicComponent(
@@ -1548,7 +1557,7 @@ private fun GlassMiuixInteractivePreference(
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer(alpha = if (enabled) 1f else 0.48f),
-        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        insideMargin = PaddingValues(horizontal = if (compact) 4.dp else 14.dp, vertical = if (compact) 8.dp else 12.dp),
         endActions = {
             // Let Miuix measure the multiline label and its control in the same row. A separate
             // overlay could retain the first-pass center while the summary wrapped on entry.

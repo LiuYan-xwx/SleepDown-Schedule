@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.os.Build
 import android.util.Log
 import com.xiaomanjun.sleepdownschedule.BuildConfig
 import com.xiaomanjun.sleepdownschedule.R
@@ -193,9 +194,20 @@ object ActivityTransitionCoordinator {
     }
 
     fun finishAfterLegacy(activity: Activity, sessionId: TransitionSessionId?) {
+        val routeId = TransitionPayloadStore.session(sessionId)?.routeId
+            ?: activity.intent.transitionRouteIdOrNull()
+        val profile = routeId?.let(TransitionRouteCatalog::get)?.legacyProfile
         TransitionPayloadStore.session(sessionId)?.moveTo(TransitionSessionState.Finished)
         TransitionPayloadStore.remove(sessionId)
         activity.finish()
+        if (profile == LegacyTransitionProfile.PlatformDefault || profile == LegacyTransitionProfile.TaskReturn) return
+        if (profile is LegacyTransitionProfile.Depth) {
+            if (Build.VERSION.SDK_INT < 34) {
+                @Suppress("DEPRECATION")
+                activity.overridePendingTransition(profile.closeEnterAnimation, profile.closeExitAnimation)
+            }
+            return
+        }
         @Suppress("DEPRECATION")
         activity.overridePendingTransition(0, 0)
     }
@@ -203,8 +215,16 @@ object ActivityTransitionCoordinator {
     /** Called before super.onCreate so the destination can recognize its matching native session. */
     fun prepareDestinationBeforeOnCreate(activity: Activity): Boolean {
         val session = TransitionPayloadStore.session(activity.intent.transitionSessionIdOrNull())
-            ?: return false
-        val route = TransitionRouteCatalog.get(session.routeId)
+        val routeId = session?.routeId ?: activity.intent.transitionRouteIdOrNull() ?: return false
+        val route = TransitionRouteCatalog.get(routeId)
+        val profile = route.legacyProfile
+        if (profile is LegacyTransitionProfile.Depth && Build.VERSION.SDK_INT >= 34) {
+            activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN,
+                profile.openEnterAnimation, profile.openExitAnimation)
+            activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE,
+                profile.closeEnterAnimation, profile.closeExitAnimation)
+        }
+        if (session == null) return false
         val payload = TransitionPayloadStore.payload(session.id)
         // Snapshot-free anchored Morphs intentionally keep the source Activity as the live
         // underlay. Select the translucent window before super.onCreate so Android never inserts

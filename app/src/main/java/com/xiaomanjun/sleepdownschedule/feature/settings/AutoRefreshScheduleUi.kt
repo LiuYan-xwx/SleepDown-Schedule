@@ -385,7 +385,7 @@ private fun AutoRefreshDashboardContent(
         title = "退出自动刷新登录？",
         message = "将移除此功能在本机保存的登录信息和头像，已导入的课表会保留。",
         actions = listOf(
-            LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary) { showLogout = false },
+            LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel) { showLogout = false },
             LiquidAlertAction("退出登录", LiquidAlertActionStyle.Destructive) {
                 scope.launch {
                     AutoRefreshScheduleCoordinator.logout(context)

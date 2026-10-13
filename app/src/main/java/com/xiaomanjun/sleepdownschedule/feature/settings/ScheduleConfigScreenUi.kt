@@ -659,7 +659,7 @@ fun ScheduleConfigScreen(
                     showExitSaveConfirm = false
                     onExitCommitFinished(true)
                 },
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) {
                     showExitSaveConfirm = false
                     onExitCommitFinished(false)
                 }
@@ -678,7 +678,7 @@ fun ScheduleConfigScreen(
             title = "重映射课程节次？",
             message = "$courseRemapDescription\n课程名称、星期和周次不变。占用已删除节次、对应关系不明确或产生新冲突时会阻止保存。",
             actions = listOf(
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) {
                     showCourseRemapConfirm = false
                     pendingRemapSaveCompletion = null
                 },
@@ -721,7 +721,7 @@ fun ScheduleConfigScreen(
                     "${course.name} · ${compactWeekSelectionLabel(hidden.weeks)}\n${courseEditorScopeDescription(listOf(hidden), state.config)}"
                 },
             actions = listOf(
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) { cancelTermShortening() },
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) { cancelTermShortening() },
                 LiquidAlertAction("保留课程并缩短", LiquidAlertActionStyle.Primary) {
                     val completion = pendingTermSaveCompletion
                     pendingTermSaveCompletion = null

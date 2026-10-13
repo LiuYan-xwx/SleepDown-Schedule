@@ -198,7 +198,7 @@ fun EduSchoolPickerScreen(
             actions = listOf(
                 LiquidAlertAction(
                     label = "取消",
-                    style = LiquidAlertActionStyle.Secondary,
+                    style = LiquidAlertActionStyle.Cancel,
                     onClick = { adapterChoices = null }
                 ),
                 LiquidAlertAction(
@@ -218,6 +218,7 @@ fun EduSchoolPickerScreen(
             onDismissRequest = { adapterChoices = null },
             messageMaxHeight = SleepDownDesignTokens.CenteredDialog.SelectionContentMaxHeight,
             scrollableMessageContent = true,
+            isSelector = true,
             messageContent = {
                 Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     choices.forEach { adapter ->
@@ -925,6 +926,10 @@ fun SchoolSearchField(
     modifier: Modifier = Modifier
 ) {
     val isLargeScreen = rememberHomeAdaptiveMetrics().isLargeScreen
+    if (com.xiaomanjun.sleepdownschedule.coloros.ColorOsSchoolSearchField(
+            value, onValueChange, appUsesDarkTheme(config), bottomOffset,
+            entranceProgress, isLargeScreen, modifier
+        )) return
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val foreground = sleepDownPanelForegroundColor(config)
@@ -1329,7 +1334,7 @@ internal fun EduBridgeInteractionDialog(
                 actions = listOf(
                     LiquidAlertAction(
                         label = "取消",
-                        style = LiquidAlertActionStyle.Secondary,
+                        style = LiquidAlertActionStyle.Cancel,
                         onClick = ::cancel
                     ),
                     LiquidAlertAction(

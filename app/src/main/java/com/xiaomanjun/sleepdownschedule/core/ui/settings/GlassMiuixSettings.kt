@@ -3,6 +3,7 @@ package com.xiaomanjun.sleepdownschedule.core.ui.settings
 import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.core.ui.interaction.*
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownDesignTokens
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalToolbarBackdropBlurred
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalCenteredDialogSceneBackdrop
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalCenteredDialogRenderInRootScaffold
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.centeredDialogSceneProducer
@@ -530,7 +531,9 @@ private fun SettingsGradientTopBar(
                     .then(blurModifier)
             )
         }
-        content()
+        CompositionLocalProvider(LocalToolbarBackdropBlurred provides (enabled && backdrop != null)) {
+            content()
+        }
     }
 }
 

@@ -25,6 +25,10 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material3.MaterialTheme
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeCapsuleButtonRenderer
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeCapsuleButtonRequest
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -90,8 +94,28 @@ fun LiquidButton(
     sharedInteractiveHighlight: InteractiveHighlight? = null,
     interactionEnabledAt: (size: Size, offset: Offset) -> Boolean = { _, _ -> true },
     flatOpacity: Float? = null,
+    enabled: Boolean = true,
+    nativeDarkOverride: Boolean? = null,
+    preserveMaterialWhenDisabled: Boolean = false,
     content: @Composable RowScope.() -> Unit
 ) {
+    // Compatibility entry for existing feature buttons. Surface-only hosts (menus, fields,
+    // shared gesture shells) retain their own geometry and do not become native click targets.
+    val nativeRenderer = LocalNativeCapsuleButtonRenderer.current
+    if (surfaceEnabled && (clickTargetEnabled || !enabled) && nativeRenderer != null) {
+        val accent = listOf(surfaceColor, tint).firstOrNull { color ->
+            color.isSpecified && color.alpha > 0f &&
+                maxOf(color.red, color.green, color.blue) - minOf(color.red, color.green, color.blue) > 0.12f
+        } ?: Color.Unspecified
+        val dark = nativeDarkOverride ?: if (!accent.isSpecified && surfaceColor.isSpecified && surfaceColor.alpha > 0f)
+            surfaceColor.luminance() < 0.5f else MaterialTheme.colorScheme.background.luminance() < 0.5f
+        if (nativeRenderer(NativeCapsuleButtonRequest(onClick, modifier, height, contentPadding, dark,
+                enabled = enabled, primaryColor = accent, acceptsGesture = interactionEnabledAt,
+                preserveMaterialWhenDisabled = preserveMaterialWhenDisabled), content)) {
+            pressSnapshot?.progress = 0f
+            return
+        }
+    }
     val animationScope = rememberCoroutineScope()
     val clickInteractionSource = remember { MutableInteractionSource() }
     val pressed by clickInteractionSource.collectIsPressedAsState()
@@ -233,6 +257,7 @@ fun LiquidButton(
                             else -> LocalIndication.current
                         },
                         role = Role.Button,
+                        enabled = enabled,
                         onClick = onClick
                     )
                 } else {

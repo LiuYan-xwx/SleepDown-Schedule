@@ -1,5 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.glass.ui
+
 import com.xiaomanjun.sleepdownschedule.glass.insetShapeFor
+import com.xiaomanjun.sleepdownschedule.glass.glassMorphContent
 import androidx.compose.ui.graphics.drawscope.inset
 
 import com.xiaomanjun.sleepdownschedule.*
@@ -60,6 +62,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
@@ -546,8 +549,32 @@ fun GlassSurface(
     placementLayer: Boolean = true,
     surfaceColorOverride: Color? = null,
     restShadowAlpha: Float = 0f,
+    nativeMaterial: Boolean = false,
+    nativeDark: Boolean? = null,
+    nativeBlurRadiusScale: Float = 1f,
+    nativeTintAlphaScale: Float = 1f,
+    nativeDockMaterial: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    if (nativeMaterial) {
+        val renderer = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current
+        val nativeDensity = LocalDensity.current
+        if (renderer?.invoke(com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+            // A native RenderNode material occupies the View's bounds. An inset generic path
+            // only clips its default capsule; it cannot relocate the stroke inside an envelope.
+            modifier = if (morphAllocation != null) modifier.glassMorphContent(morphAllocation) else modifier,
+            shape = shape, dark = nativeDark ?: !glassUsesLightStyle(config),
+            blurRadiusScale = nativeBlurRadiusScale,
+            tintAlphaScale = nativeTintAlphaScale,
+            role = if (nativeDockMaterial) com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.HomeDock
+                else com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.Content,
+            onClick = onClick,
+            shapeProvider = if (morphAllocation != null) {
+                { RoundedRectangle(with(nativeDensity) { morphAllocation.geometry().cornerRadiusPx.toDp() }) }
+            } else shapeProvider,
+            edgeEffects = tokens.highlightAlpha > 0f || tokens.borderAlpha > 0f
+        ), content) == true) return
+    }
     val glassBackdrop = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) backdrop else null
     val useGlass = glassBackdrop != null
     val quality = LocalGlassQuality.current
@@ -820,23 +847,29 @@ private fun DrawScope.drawBottomLitGlassTint(
     topTintFloor: Float = 0.20f,
     expanded: Boolean = false
 ) {
+    drawRect(bottomLitGlassTintBrush(color, size.height, topTintFloor, expanded))
+}
+
+private fun bottomLitGlassTintBrush(
+    color: Color, height: Float, topTintFloor: Float = 0.20f,
+    expanded: Boolean = false
+): Brush {
     val top = topTintFloor.coerceIn(0f, 0.72f)
+    fun tint(weight: Float) = color.copy(alpha = color.alpha * weight)
     val firstLiftY = if (expanded) 0.68f else 0.82f
     val brightBandY = if (expanded) 0.82f else 0.90f
     val rimY = if (expanded) 0.92f else 0.96f
-    drawRect(
-        brush = Brush.verticalGradient(
+    return Brush.verticalGradient(
             colorStops = arrayOf(
-                0f to color.copy(alpha = color.alpha * top),
-                (if (expanded) 0.48f else 0.62f) to color.copy(alpha = color.alpha * top),
-                firstLiftY to color.copy(alpha = color.alpha * maxOf(top, 0.48f)),
-                brightBandY to color.copy(alpha = color.alpha * maxOf(top, 0.84f)),
-                rimY to color.copy(alpha = color.alpha * maxOf(top, 0.88f)),
+                0f to tint(top),
+                (if (expanded) 0.48f else 0.62f) to tint(top),
+                firstLiftY to tint(maxOf(top, 0.48f)),
+                brightBandY to tint(maxOf(top, 0.84f)),
+                rimY to tint(maxOf(top, 0.88f)),
                 1f to color
             ),
-            endY = size.height
+            endY = height
         )
-    )
 }
 
 internal fun Modifier.verticalGlassAccent(
@@ -1008,6 +1041,25 @@ fun BlueStatusGlassPill(
     content: @Composable () -> Unit
 ) {
     val shape = Capsule()
+    val nativeTint: DrawScope.() -> Unit = remember(accentColor) {
+        var height = Float.NaN
+        var brush: Brush? = null
+        val paint: DrawScope.() -> Unit = {
+            if (height != size.height) {
+                height = size.height
+                // Keep the former 30% upper tint, then deepen it toward the lower rim.
+                brush = bottomLitGlassTintBrush(accentColor.copy(alpha = 0.5f), height,
+                    topTintFloor = 0.6f, expanded = true)
+            }
+            drawRect(requireNotNull(brush))
+        }
+        paint
+    }
+    val nativeSurface = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current
+    if (nativeSurface?.invoke(com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+        modifier = modifier, shape = shape, dark = !glassUsesLightStyle(config),
+        onDrawTint = nativeTint, blurRadiusScale = 0.6f
+    ), content) == true) return
     Box(modifier = modifier) {
         GlassSurface(
             backdrop = backdrop,
@@ -1051,6 +1103,7 @@ fun CourseGlassCard(
     backdropSampleScale: Float = 1f,
     sampledShape: Shape? = null,
     expandedOutlineLight: Boolean = false,
+    followTouch: Boolean = true,
     muted: Boolean = false,
     flatOpacityOverride: Float? = null,
     morphAllocation: com.xiaomanjun.sleepdownschedule.glass.GlassMorphAllocation? = null,
@@ -1083,6 +1136,44 @@ fun CourseGlassCard(
         occlusionPhase == CourseGlassOcclusionPhase.PostCloseRestore ||
             occlusionPhase == CourseGlassOcclusionPhase.Revealing
     val previewState = LocalPersonalizationPreview.current
+    val nativeMode = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeCourseCardMode.current
+    if (nativeMode?.enabled == true) {
+        val base = if (muted) MutedCourseLightColor else courseCardBaseColor(config, course)
+        val alpha = nativeMode.tintStrength
+        val tintDraw: DrawScope.() -> Unit = remember(base, alpha, expandedOutlineLight) {
+            var height = Float.NaN
+            var brush: Brush? = null
+            val draw: DrawScope.() -> Unit = {
+                if (size.height != height) {
+                    height = size.height
+                    brush = bottomLitGlassTintBrush(base.copy(alpha = alpha), height,
+                        expanded = expandedOutlineLight)
+                }
+                // Transfer course tint only. Native stroke and foreground light own the
+                // material highlights; legacy shading would paint over and duplicate them.
+                drawRect(requireNotNull(brush))
+            }
+            draw
+        }
+        val coordinates = remember { arrayOfNulls<LayoutCoordinates>(1) }
+        val cardBounds = remember { {
+            coordinates[0]?.takeIf { it.isAttached }?.let { position ->
+                val origin = position.localToWindow(Offset.Zero)
+                Rect(origin.x, origin.y, origin.x + position.size.width, origin.y + position.size.height)
+            }
+        } }
+        val background = rememberCourseTextBackground(base, alpha, true, nativeMode.blurRadiusPx, true, expandedOutlineLight,
+            flatBackground = homeFlatBackgroundColor(appUsesDarkTheme(config)).takeUnless { config.hasAnyWallpaper() },
+            ready = true, cardBounds = cardBounds)
+        val renderer = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeCourseCardRenderer.current
+        if (renderer?.invoke(com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeCourseCardRequest(
+                modifier.onGloballyPositioned { coordinates[0] = it }, shape, appUsesDarkTheme(config),
+                renderSurface, drawMaterialNodes, onClick, tintDraw,
+                followTouch = followTouch
+            )) {
+                CompositionLocalProvider(LocalCourseTextBackground provides background) { content() }
+            } == true) return
+    }
     val glassBackdrop = if (
         config.courseCardGlassEnabled &&
         config.hasAnyWallpaper() &&

@@ -341,8 +341,8 @@ fun ScheduleManagerScreen(
                 blurRadius = 10.dp,
                 lensHeight = 26.dp,
                 lensAmount = 34.dp,
-                surfaceColor = Color(0xFF007AFF).copy(alpha = 0.24f),
-                tint = Color(0xFF007AFF),
+                surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+                tint = MaterialTheme.colorScheme.primary,
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
                 Text("设为", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
@@ -514,8 +514,8 @@ fun ScheduleManagerScreen(
                     .offset(x = plusOffset)
                     .size(buttonSize),
                 height = buttonSize,
-                tint = Color(0xFF007AFF),
-                surfaceColor = Color(0xFF007AFF).copy(alpha = 0.22f),
+                tint = MaterialTheme.colorScheme.primary,
+                surfaceColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
                 blurRadius = 10.dp,
                 lensHeight = 30.dp,
                 lensAmount = 44.dp,
@@ -536,7 +536,7 @@ fun ScheduleManagerScreen(
             title = "删除课表",
             message = "确定要删除「${profile.name}」吗？该课表内的课程会一起删除。",
             actions = listOf(
-                LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary) { deleteCandidate = null },
+                LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel) { deleteCandidate = null },
                 LiquidAlertAction("删除", LiquidAlertActionStyle.Destructive) {
                     onDelete(profile.id)
                     deleteCandidate = null
@@ -592,7 +592,7 @@ fun ScheduleManagerScreen(
                         }
                     }
                 },
-                LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary) { showShareOptions = false }
+                LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel) { showShareOptions = false }
             ),
             backdrop = sceneBackdrop,
             config = settingsVisualConfig(state.config),
@@ -1129,6 +1129,9 @@ fun ScheduleRenameDialog(
     onCancel: () -> Unit,
     onSave: (String) -> Unit
 ) {
+    if (com.xiaomanjun.sleepdownschedule.coloros.ColorOsNameDialog(
+            "重命名课表", profile.name, appUsesDarkTheme(config), 24, onCancel,
+            { onSave(it.ifBlank { "未命名课表" }) })) return
     var name by remember(profile.id) { mutableStateOf(profile.name) }
     Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         CenterLiquidDialog(backdrop = backdrop, config = config) {

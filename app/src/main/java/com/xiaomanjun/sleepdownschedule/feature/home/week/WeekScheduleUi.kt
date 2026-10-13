@@ -1438,6 +1438,7 @@ fun WeekSwitchButton(direction: Int, config: ScheduleConfigEntity, backdrop: Bac
     if (backdrop != null) {
         LiquidButton(
             onClick = { if (enabled) onClick() },
+            enabled = enabled,
             backdrop = backdrop,
             modifier = Modifier
                 .size(34.dp)
@@ -1769,6 +1770,8 @@ private fun WeekdayHeaderLabels(
 @Composable
 fun WeekHeaderPill(backdrop: Backdrop?, config: ScheduleConfigEntity, selected: Boolean, content: @Composable () -> Unit) {
     GlassSurface(
+        nativeMaterial = true,
+        nativeBlurRadiusScale = 0.6f,
         backdrop = backdrop,
         config = config,
         modifier = Modifier.fillMaxSize(),

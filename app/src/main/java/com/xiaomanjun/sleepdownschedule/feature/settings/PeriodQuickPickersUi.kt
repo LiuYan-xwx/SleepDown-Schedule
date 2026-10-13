@@ -29,7 +29,7 @@ internal fun PeriodPickerActions(
 ) {
     LiquidAlertActions(
         actions = listOf(
-            LiquidAlertAction(cancelText, LiquidAlertActionStyle.Secondary, onClick = onCancel),
+            LiquidAlertAction(cancelText, LiquidAlertActionStyle.Cancel, onClick = onCancel),
             LiquidAlertAction(confirmText, LiquidAlertActionStyle.Primary, onClick = onConfirm)
         ),
         backdrop = backdrop,

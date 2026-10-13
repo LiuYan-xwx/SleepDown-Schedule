@@ -39,9 +39,10 @@ fun CrossActivityTransitionHost(
     val session = remember(sessionId) { TransitionPayloadStore.session(sessionId) }
     val payload = remember(sessionId) { TransitionPayloadStore.payload(sessionId) }
     val routeId = session?.routeId ?: activity.intent.transitionRouteIdOrNull()
-    val profile = routeId
+    val legacyProfile = routeId
         ?.let(TransitionRouteCatalog::get)
-        ?.legacyProfile as? LegacyTransitionProfile.Anchored
+        ?.legacyProfile
+    val profile = legacyProfile as? LegacyTransitionProfile.Anchored
     val state = if (session != null) {
         val observed by session.state.collectAsState()
         observed
@@ -67,7 +68,10 @@ fun CrossActivityTransitionHost(
                 .fillMaxSize()
                 .graphicsLayer { clip = false }
         ) {
-            if (com.xiaomanjun.sleepdownschedule.core.ui.designsystem.isLandscapeMenuWindow() ||
+            if (legacyProfile == LegacyTransitionProfile.PlatformDefault ||
+                legacyProfile is LegacyTransitionProfile.Depth ||
+                (legacyProfile != LegacyTransitionProfile.Page &&
+                    com.xiaomanjun.sleepdownschedule.core.ui.designsystem.isLandscapeMenuWindow()) ||
                 routeId == TransitionRouteId.TabletHomeToCourseManagement ||
                 routeId == TransitionRouteId.TabletHomeToEduImport
             ) {
@@ -88,9 +92,11 @@ fun CrossActivityTransitionHost(
                     ?: profile?.sourceCornerRadiusDp
                     ?: 0f).dp,
                 backgroundSnapshot = payload?.backgroundBitmap,
+                backgroundDialog = payload?.backgroundDialog,
                 sourceSnapshot = openingAnchor?.bitmap,
                 collapseSnapshot = returnAnchor?.bitmap,
                 motionStyle = profile?.profileId.toMotionStyle(),
+                animateWithoutAnchor = legacyProfile == LegacyTransitionProfile.Page,
                 destinationFirstOpening = profile?.destinationFirstOpening == true,
                 openingMode = openingMode,
                 openingReady = openingReady,

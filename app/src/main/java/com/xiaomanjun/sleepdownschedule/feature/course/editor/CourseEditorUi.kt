@@ -1039,7 +1039,7 @@ fun NormalizedCourseEditorScreen(
                     showExitConfirm = false
                     onCancel()
                 },
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) { showExitConfirm = false }
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) { showExitConfirm = false }
             ),
             backdrop = backdrop,
             config = config,
@@ -1073,17 +1073,24 @@ private fun CourseEditorFormPage(
     // This form lives on the wallpaper-sampling CourseGlassCard. Its complete foreground domain
     // must follow the glass contrast decision; appPanelForegroundColor follows the app theme and
     // produced black row labels on a dark sampled card while values/icons stayed light.
-    val editorContentColor = if (backdrop != null) {
+    val materialForeground = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialForeground.current
+    val editorContentColor = if (materialForeground != ComposeColor.Unspecified) {
+        materialForeground
+    } else if (com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeDialogSurface.current) {
+        appPanelForegroundColor(config)
+    } else if (backdrop != null) {
         LocalAdaptiveGlass.current.contentColor
     } else {
         glassForegroundColor(config)
     }
-    val editorFieldSurface = if (appUsesDarkTheme(config)) {
+    val editorFieldSurface = if (materialForeground != ComposeColor.Unspecified) {
+        materialForeground.copy(alpha = 0.10f)
+    } else if (appUsesDarkTheme(config)) {
         ComposeColor(0xFF2C2C2E).copy(alpha = 0.54f)
     } else {
         ComposeColor.White.copy(alpha = 0.70f)
     }
-    val editorFieldTextColor = readableOn(editorFieldSurface)
+    val editorFieldTextColor = if (materialForeground != ComposeColor.Unspecified) materialForeground else readableOn(editorFieldSurface)
     val formBodyBackdrop = rememberGlassLayerBackdrop(
         domain = GlassBackdropDomain.Content,
         providerId = "course-editor-form-body"
@@ -1740,29 +1747,14 @@ internal fun CourseEditorPickerOverlay(
             )
         ) {
             if (periodRequest != null) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    QuickSheetLiquidAction(
-                        label = "按节次",
-                        enabled = true,
-                        backdrop = backdrop,
-                        config = config,
-                        primary = !customTimeMode,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp
-                    ) {
-                        customTimeMode = false
-                        timeError = null
-                    }
-                    QuickSheetLiquidAction(
-                        label = "自定义时间",
-                        enabled = true,
-                        backdrop = backdrop,
-                        config = config,
-                        primary = customTimeMode,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp
-                    ) {
-                        customTimeMode = true
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    com.xiaomanjun.sleepdownschedule.feature.settings.LiquidOptionTabs(
+                        selectedIndex = if (customTimeMode) 1 else 0,
+                        labels = listOf("按节次", "自定义时间"),
+                        backdrop = backdrop, config = config, width = maxWidth,
+                        followAppTheme = true
+                    ) { index ->
+                        customTimeMode = index == 1
                         timeError = null
                     }
                 }

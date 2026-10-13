@@ -137,7 +137,7 @@ fun ConfirmScheduleScreen(
                     actions = listOf(
                         LiquidAlertAction("创建新课表", LiquidAlertActionStyle.Primary) { onConfirm(true) },
                         LiquidAlertAction("覆盖当前课表", LiquidAlertActionStyle.Destructive) { onConfirm(false) },
-                        LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = onCancel)
+                        LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = onCancel)
                     ),
                     backdrop = backdrop,
                     config = previewDraft.config
@@ -313,7 +313,7 @@ private fun AiImportChatPreview(
                 actions = listOf(
                     LiquidAlertAction("创建新课表", LiquidAlertActionStyle.Primary) { onConfirm(true) },
                     LiquidAlertAction("覆盖当前课表", LiquidAlertActionStyle.Destructive) { onConfirm(false) },
-                    LiquidAlertAction("返回检查", LiquidAlertActionStyle.Secondary, onClick = onCancel)
+                    LiquidAlertAction("返回检查", LiquidAlertActionStyle.Cancel, onClick = onCancel)
                 ),
                 backdrop = backdrop,
                 config = draft.config

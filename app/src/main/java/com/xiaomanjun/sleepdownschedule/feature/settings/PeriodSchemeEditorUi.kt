@@ -617,7 +617,7 @@ internal fun PeriodSchemeEditor(
         listOf(
             LiquidAlertAction("保存", LiquidAlertActionStyle.Primary, onClick = { showExitConfirmation = false; leave(true) }),
             LiquidAlertAction("不保存", LiquidAlertActionStyle.Destructive, onClick = { showExitConfirmation = false; leave(false) }),
-            LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary, onClick = { showExitConfirmation = false })
+            LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel, onClick = { showExitConfirmation = false })
         ), popupBackdrop, state.config, { showExitConfirmation = false })
     if (showWizard) PeriodSchemeCreationWizard(config, draft, popupBackdrop, state.config,
         onDismiss = { showWizard = false; if (managementContent != null) onEditorFinished() },
@@ -625,7 +625,7 @@ internal fun PeriodSchemeEditor(
     deletingBlock?.let { block ->
         LiquidAlertDialog("移除${block.title}", if (block.isBreak) "后续课程将在当前时段内提前 ${block.minutes} 分钟，节次编号不变。"
             else "这套作息的节次编号将连续调整，删除后可从课间下方添加节次。如果课程占用了被删除的节次，保存会被阻止。",
-            listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = { deletingBlock = null }),
+            listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = { deletingBlock = null }),
                 LiquidAlertAction("移除", LiquidAlertActionStyle.Destructive, onClick = {
                     session?.let { edit ->
                         val result = if (block.isBreak) resizeTimelineEntry(edit, block, 0) else deleteTimelinePeriod(edit, block.period)

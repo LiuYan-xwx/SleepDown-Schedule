@@ -211,9 +211,11 @@ internal fun AnchoredDetailActivityMorph(
     onSourceHandoff: () -> Unit = {},
     sourceContent: @Composable BoxScope.() -> Unit,
     backgroundSnapshot: Bitmap? = null,
+    backgroundDialog: com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshot? = null,
     sourceSnapshot: Bitmap? = null,
     collapseSnapshot: Bitmap? = null,
     motionStyle: AnchoredDetailMotionStyle = AnchoredDetailMotionStyle.Liquid,
+    animateWithoutAnchor: Boolean = false,
     destinationFirstOpening: Boolean = false,
     suppressOpening: Boolean = false,
     openingMode: AnchoredDetailOpeningMode = if (suppressOpening) {
@@ -231,7 +233,7 @@ internal fun AnchoredDetailActivityMorph(
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
     val progress = remember(sourceBounds) {
         Animatable(
-            if (sourceBounds == null || openingMode == AnchoredDetailOpeningMode.ShowDestination) {
+            if ((!animateWithoutAnchor && sourceBounds == null) || openingMode == AnchoredDetailOpeningMode.ShowDestination) {
                 1f
             } else {
                 0f
@@ -242,7 +244,7 @@ internal fun AnchoredDetailActivityMorph(
     var closing by remember(sourceBounds) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val usesCourseEditorMotion = motionStyle == AnchoredDetailMotionStyle.CourseManagementDetail
-    val usesPageMotion = motionStyle == AnchoredDetailMotionStyle.DetailSettings ||
+    val usesPageMotion = animateWithoutAnchor || motionStyle == AnchoredDetailMotionStyle.DetailSettings ||
         motionStyle == AnchoredDetailMotionStyle.Parabolic ||
         usesCourseEditorMotion
     val usesHomeMenuDestinationMotion = motionStyle == AnchoredDetailMotionStyle.HomeMenuDestination
@@ -257,7 +259,7 @@ internal fun AnchoredDetailActivityMorph(
     fun close() {
         if (closing) return
         if (onCloseRequested?.invoke() == true) return
-        if (sourceBounds == null) {
+        if (sourceBounds == null && !animateWithoutAnchor) {
             onFinished()
             return
         }
@@ -298,13 +300,13 @@ internal fun AnchoredDetailActivityMorph(
     }
 
     BackHandler(enabled = handleSystemBack, onBack = ::close)
-    LaunchedEffect(sourceBounds, rootSize, motionStyle, openingMode, openingReady) {
+    LaunchedEffect(sourceBounds, rootSize, motionStyle, openingMode, openingReady, animateWithoutAnchor) {
         if (openingMode == AnchoredDetailOpeningMode.ShowDestination) {
             if (progress.value < 1f) progress.snapTo(1f)
         } else if (
             openingReady &&
             openingMode == AnchoredDetailOpeningMode.AnimateLegacy &&
-            sourceBounds != null && rootSize.width > 0 && rootSize.height > 0 &&
+            (sourceBounds != null || animateWithoutAnchor) && rootSize.width > 0 && rootSize.height > 0 &&
             progress.value < 1f
         ) {
             // Precompose the destination before motion starts. This matches the detailed-settings
@@ -365,6 +367,7 @@ internal fun AnchoredDetailActivityMorph(
                     bitmap = bitmap,
                     backgroundScaleProvider = { backgroundScale.value },
                     nativeRoundClip = nativeRoundClip,
+                    dialog = backgroundDialog,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -406,6 +409,7 @@ internal fun AnchoredDetailActivityMorph(
                 parabolic = motionStyle == AnchoredDetailMotionStyle.Parabolic || usesCourseEditorMotion,
                 openingDownward = false,
                 homeCourseParabola = usesCourseEditorMotion,
+                animateWithoutAnchor = animateWithoutAnchor,
                 onClose = ::close,
                 sourceContent = sourceContent,
                 content = content
@@ -1131,6 +1135,7 @@ private fun BoxScope.AnchoredSettingsStyleMorph(
     parabolic: Boolean,
     openingDownward: Boolean,
     homeCourseParabola: Boolean = false,
+    animateWithoutAnchor: Boolean = false,
     onClose: () -> Unit,
     sourceContent: @Composable BoxScope.() -> Unit,
     content: @Composable (requestClose: () -> Unit) -> Unit
@@ -1139,7 +1144,11 @@ private fun BoxScope.AnchoredSettingsStyleMorph(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val screenWidth = with(density) { maxWidth.toPx() }
         val screenHeight = with(density) { maxHeight.toPx() }
-        val source = sourceBounds ?: Rect(0f, 0f, screenWidth, screenHeight)
+        // A closed native menu has no remaining source surface. Reuse the detail-page renderer
+        // from a centered full-page scale, without manufacturing a menu snapshot or anchor.
+        val source = sourceBounds ?: if (animateWithoutAnchor) {
+            Rect(screenWidth * 0.04f, screenHeight * 0.04f, screenWidth * 0.96f, screenHeight * 0.96f)
+        } else Rect(0f, 0f, screenWidth, screenHeight)
         val initialScale = (source.width / screenWidth).coerceAtLeast(0.001f)
         val sourceCenterX = source.left + source.width / 2f
         val targetCornerRadiusPx = deviceScreenCornerRadiusPx()
@@ -1260,7 +1269,7 @@ private fun BoxScope.AnchoredSettingsStyleMorph(
                     }
                 }
         ) {
-            if (sourceVisible) {
+            if (sourceVisible && !animateWithoutAnchor) {
                 if (sourceSnapshot != null) {
                     Image(
                         bitmap = sourceSnapshot.asImageBitmap(),

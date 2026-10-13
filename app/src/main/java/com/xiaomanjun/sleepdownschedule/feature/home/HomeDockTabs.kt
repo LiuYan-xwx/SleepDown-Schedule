@@ -1,6 +1,10 @@
 package com.xiaomanjun.sleepdownschedule.feature.home
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
@@ -9,10 +13,13 @@ import com.kyant.backdrop.catalog.components.LiquidBottomTabs
 import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.app.ui.DockTabContent
+import com.xiaomanjun.sleepdownschedule.app.ui.DockItem
 import com.xiaomanjun.sleepdownschedule.app.ui.HomeLightGlassSelectedAccentColor
 import com.xiaomanjun.sleepdownschedule.app.ui.HomeLightGlassSurfaceColor
 import com.xiaomanjun.sleepdownschedule.app.ui.homeChromeBlur
 import com.xiaomanjun.sleepdownschedule.app.ui.homeChromeGlassSurfaceAlpha
+import com.xiaomanjun.sleepdownschedule.coloros.ColorOsHomeDock
+import com.xiaomanjun.sleepdownschedule.glass.ui.GlassPill
 
 /** Both phone modes use the same Dock cells and material; parallel mode adds one cell. */
 @Composable
@@ -20,7 +27,7 @@ internal fun HomeDockTabs(
     selectedIndex: Int,
     parallel: Boolean,
     config: ScheduleConfigEntity,
-    backdrop: Backdrop,
+    backdrop: Backdrop?,
     lightGlass: Boolean,
     modifier: Modifier = Modifier,
     containerSurfaceEnabled: Boolean = true,
@@ -29,6 +36,18 @@ internal fun HomeDockTabs(
     val tabs = if (parallel) listOf(
         R.drawable.ic_day_view to "今日", R.drawable.ic_week_view to "课程表", R.drawable.ic_settings to "设置"
     ) else listOf(R.drawable.ic_week_view to "课程", R.drawable.ic_settings to "设置")
+    if (ColorOsHomeDock(tabs, selectedIndex, dark = !lightGlass,
+            modifier = modifier, onSelect = onSelect)) return
+    if (backdrop == null) {
+        GlassPill(backdrop = null, config = config, modifier = modifier) {
+            Row(Modifier.height(54.dp).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                tabs.forEachIndexed { index, (icon, label) ->
+                    DockItem(selectedIndex == index, null, config, icon, label) { onSelect(index) }
+                }
+            }
+        }
+        return
+    }
     LiquidBottomTabs(
         selectedTabIndex = { selectedIndex }, onTabSelected = onSelect,
         backdrop = backdrop, tabsCount = tabs.size, modifier = modifier,

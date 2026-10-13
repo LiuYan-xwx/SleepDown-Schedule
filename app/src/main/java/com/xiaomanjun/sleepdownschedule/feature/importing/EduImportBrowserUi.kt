@@ -598,21 +598,18 @@ private fun EduImportGuideMorphOverlay(
         val collapsedContentAlpha = 1f - synchronizedProgress
         val handleCollapseThreshold = with(density) { 18.dp.toPx() }
 
-        LiquidButton(
-            onClick = { if (!expanded) onExpand() }, backdrop = backdrop,
+        // A morphing panel must own its corners instead of inheriting a COUIButton capsule rim.
+        Box(
             modifier = Modifier.align(Alignment.TopStart)
                 .offset(x = cardLeft, y = cardTop).width(cardWidth).height(cardHeight)
-                .graphicsLayer { alpha = visibleAlpha; clip = false },
-            isInteractive = visible, clickTargetEnabled = visible,
-            height = cardHeight, contentPadding = PaddingValues(0.dp),
-            blurRadius = 10.dp, lensHeight = 24.dp + 6.dp * synchronizedProgress,
-            lensAmount = 42.dp + 8.dp * synchronizedProgress, chromaticAberration = true,
-            surfaceColor = ComposeColor.Black.copy(alpha = 0.68f - 0.42f * synchronizedProgress),
-            shadowEnabled = false, highlightEnabled = true,
-            shape = cardShape, clipToBounds = false, pressExpansion = 3.dp
+                .graphicsLayer { alpha = visibleAlpha; clip = false }
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null, enabled = visible && !expanded, onClick = onExpand
+                )
         ) {
             TopAssistantSurface(backdrop, config, cardShape, modifier = Modifier.fillMaxSize(),
-                glow = expanded, materialEnabled = false) {
+                glow = expanded, nativeMaterial = true) {
             Box(Modifier.fillMaxSize().clip(cardShape)) {
                 Row(
                     modifier = Modifier

@@ -332,8 +332,12 @@ fun LiquidSlider(
     modifier: Modifier = Modifier,
     compactThumb: Boolean = false
 ) {
+    if (com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeSliderRenderer.current?.invoke(
+            com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeSliderRequest(
+                value, valueRange, onPreviewValueChange, onPreviewModeChange, onCommit, modifier, snapValue
+            )) == true) return
     val isLightTheme = !isSystemInDarkTheme()
-    val accentColor = if (isLightTheme) Color(0xFF0088FF) else Color(0xFF0091FF)
+    val accentColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
     val trackColor = if (isLightTheme) Color(0xFF787878).copy(0.2f) else Color(0xFF787880).copy(0.36f)
     val trackBackdrop = rememberGlassLayerBackdrop(
         domain = GlassBackdropDomain.ChromeCombined,

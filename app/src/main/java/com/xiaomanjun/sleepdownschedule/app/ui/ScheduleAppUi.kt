@@ -3,6 +3,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.clipPath
 
+import com.xiaomanjun.sleepdownschedule.core.ui.material.controlAccentColor
 import androidx.compose.animation.core.LinearEasing
 
 import com.xiaomanjun.sleepdownschedule.*
@@ -25,6 +26,7 @@ import com.xiaomanjun.sleepdownschedule.feature.home.*
 import com.xiaomanjun.sleepdownschedule.feature.home.day.*
 import com.xiaomanjun.sleepdownschedule.feature.home.week.*
 import com.xiaomanjun.sleepdownschedule.feature.home.overlay.*
+import com.xiaomanjun.sleepdownschedule.coloros.ColorOsHomeIconButton
 
 import com.xiaomanjun.sleepdownschedule.app.config.SleepDownRemoteConfig
 import com.xiaomanjun.sleepdownschedule.core.performance.*
@@ -284,6 +286,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
@@ -516,7 +519,7 @@ private const val EduAdapterExtra = "edu_adapter"
 private fun SettingsPage.title(): String = when (this) {
     SettingsPage.Root -> "设置"
     SettingsPage.General -> "通用设置"
-    SettingsPage.LiquidGlass -> "液态玻璃"
+    SettingsPage.LiquidGlass -> "视效设置"
     SettingsPage.Widgets -> "小组件设置"
     SettingsPage.AiImport -> "AI 设置"
     SettingsPage.DayAgent -> "AI 助理"
@@ -653,7 +656,8 @@ private fun composeDetailMorphSnapshot(underlay: Bitmap, popup: Bitmap): Bitmap?
 
 private data class DetailMorphWindowSnapshot(
     val bitmap: Bitmap,
-    val originInWindow: Offset
+    val originInWindow: Offset,
+    val dialog: com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshot? = null
 )
 
 /**
@@ -667,7 +671,8 @@ private data class DetailMorphWindowSnapshot(
 private suspend fun captureDetailMorphWindowSnapshot(
     activity: Activity,
     rootPositionInWindow: Offset,
-    rootSize: IntSize
+    rootSize: IntSize,
+    overlayWindow: android.view.Window? = null
 ): DetailMorphWindowSnapshot? {
     val decor = activity.window.decorView
     if (decor.width <= 0 || decor.height <= 0 || rootSize.width <= 0 || rootSize.height <= 0) {
@@ -682,27 +687,53 @@ private suspend fun captureDetailMorphWindowSnapshot(
         .roundToInt()
         .coerceIn(top + 1, decor.height)
     val sourceRect = android.graphics.Rect(left, top, right, bottom)
-    val bitmap = Bitmap.createBitmap(
-        sourceRect.width(),
-        sourceRect.height(),
-        Bitmap.Config.ARGB_8888
-    )
+    val bitmap = copyDetailWindow(activity.window, sourceRect) ?: return null
+    if (overlayWindow != null && overlayWindow !== activity.window) {
+        val overlayDecor = overlayWindow.decorView
+        if (overlayDecor.width <= 0 || overlayDecor.height <= 0) { bitmap.recycle(); return null }
+        val overlay = copyDetailWindow(overlayWindow,
+            android.graphics.Rect(0, 0, overlayDecor.width, overlayDecor.height))
+        if (overlay == null) { bitmap.recycle(); return null }
+        val ownerScreen = IntArray(2).also(decor::getLocationOnScreen)
+        val ownerWindow = IntArray(2).also(decor::getLocationInWindow)
+        val overlayScreen = IntArray(2).also(overlayDecor::getLocationOnScreen)
+        val canvas = android.graphics.Canvas(bitmap)
+        if (overlayWindow.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND != 0) {
+            canvas.drawColor(android.graphics.Color.argb(
+                (overlayWindow.attributes.dimAmount.coerceIn(0f, 1f) * 255).roundToInt(), 0, 0, 0))
+        }
+        val offset = Offset((overlayScreen[0] - ownerScreen[0] + ownerWindow[0] - left).toFloat(),
+            (overlayScreen[1] - ownerScreen[1] + ownerWindow[1] - top).toFloat())
+        val material = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshotRegistry.capture(overlayWindow)
+        if (material != null) {
+            // Keep the copied foreground and the COUI backdrop separate. PixelCopy reads only
+            // the window buffer; flattening it here silently drops BackgroundBlurDrawable.
+            return DetailMorphWindowSnapshot(bitmap, Offset(left.toFloat(), top.toFloat()),
+                com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshot(
+                    overlay, Rect(offset, androidx.compose.ui.geometry.Size(overlay.width.toFloat(), overlay.height.toFloat())),
+                    material.bounds.translate(offset), material.cornerRadiusPx, material.dark))
+        }
+        canvas.drawBitmap(overlay,
+            (overlayScreen[0] - ownerScreen[0] + ownerWindow[0] - left).toFloat(),
+            (overlayScreen[1] - ownerScreen[1] + ownerWindow[1] - top).toFloat(), null)
+        overlay.recycle()
+    }
+    return DetailMorphWindowSnapshot(bitmap, Offset(left.toFloat(), top.toFloat()))
+}
+
+private suspend fun copyDetailWindow(window: android.view.Window, sourceRect: android.graphics.Rect): Bitmap? {
+    val bitmap = Bitmap.createBitmap(sourceRect.width(), sourceRect.height(), Bitmap.Config.ARGB_8888)
     return suspendCancellableCoroutine { continuation ->
         runCatching {
             PixelCopy.request(
-                activity.window,
+                window,
                 sourceRect,
                 bitmap,
                 { result ->
                     if (!continuation.isActive) {
                         bitmap.recycle()
                     } else if (result == PixelCopy.SUCCESS) {
-                        continuation.resume(
-                            DetailMorphWindowSnapshot(
-                                bitmap = bitmap,
-                                originInWindow = Offset(left.toFloat(), top.toFloat())
-                            )
-                        )
+                        continuation.resume(bitmap)
                     } else {
                         bitmap.recycle()
                         continuation.resume(null)
@@ -1387,6 +1418,7 @@ fun CourseScheduleAppUi(
         }
     }
     val wallpaperImages by rememberHomeWallpaperImages(visualState.config)
+    val colorOsOverflowActions = remember { mutableStateOf<List<AddMenuAction>>(emptyList()) }
     val homeWallpaperRecordKey = remember { mutableStateOf<Any?>(null) }
     val updateHomeWallpaperRecordKey: (Any?) -> Unit = remember {
         { homeWallpaperRecordKey.value = it }
@@ -1405,6 +1437,31 @@ fun CourseScheduleAppUi(
         )
     }
     val appDarkTheme = appUsesDarkTheme(visualState.config)
+    val nativeVisuals = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalVisualEffects.current.usesNativeControls
+    val colorOsAccentBackground = remember(nativeVisuals, homeReadabilityContext, appDarkTheme) {
+        if (!nativeVisuals) return@remember 0
+        val root = homeReadabilityContext.rootSize
+        val colors = sampleVisibleWallpaperColors(homeReadabilityContext,
+            Rect(0f, root.height * 0.80f, root.width.toFloat(), root.height.toFloat()), columns = 9, rows = 3)
+        if (colors.isNullOrEmpty()) (if (appDarkTheme) ComposeColor.Black else ComposeColor.White).toArgb()
+        else ComposeColor(colors.map { it.red }.average().toFloat(), colors.map { it.green }.average().toFloat(),
+            colors.map { it.blue }.average().toFloat()).toArgb()
+    }
+    val colorOsHomeAccents = com.xiaomanjun.sleepdownschedule.coloros
+        .rememberColorOsHomeAccents(visualState.config, appDarkTheme, colorOsAccentBackground)
+    val colorOsActiveDockAccent = if (screen is Screen.Home) colorOsHomeAccents?.dock
+        else colorOsHomeAccents?.button?.let {
+            com.xiaomanjun.sleepdownschedule.coloros.colorOsContrastingAccent(
+                it, MaterialTheme.colorScheme.background.toArgb())
+        }
+    val adaptiveGlassState = rememberFallbackAdaptiveGlassState(visualState.config)
+    val homeChromeHasWallpaper = visualState.config.hasAnyWallpaper()
+    val homeChromeForeground = adaptiveGlassState.contentColor.toArgb().takeIf { homeChromeHasWallpaper }
+    val homeChromeDark = if (homeChromeHasWallpaper) !adaptiveGlassState.lightGlass else appDarkTheme
+    val homeNeutralChromeStyle = remember(nativeVisuals, homeChromeDark, homeChromeHasWallpaper, homeChromeForeground) {
+        if (!nativeVisuals) null else com.xiaomanjun.sleepdownschedule.coloros.ColorOsHomeChromeStyle(
+            homeChromeDark, homeChromeHasWallpaper && !homeChromeDark, homeChromeForeground)
+    }
     val statusBarWallpaperLuminance = remember(homeReadabilityContext) {
         homeStatusBarWallpaperLuminance(homeReadabilityContext)
     }
@@ -1481,7 +1538,6 @@ fun CourseScheduleAppUi(
         }
     }
     val glassQuality = animatedGlassQuality(startupPhase)
-    val adaptiveGlassState = rememberFallbackAdaptiveGlassState(visualState.config)
     val homeAnchoredKindLabel = when (homeAnchoredMorphState.renderedKind) {
         HomeAnchoredOverlayKind.Add -> "AddMenu"
         HomeAnchoredOverlayKind.Personalize -> "Personalize"
@@ -2391,6 +2447,36 @@ fun CourseScheduleAppUi(
     val homeCourseClick = remember {
         { course: CourseEntity, week: Int, bounds: Rect? -> currentHomeCourseClick.value(course, week, bounds) }
     }
+    // Keep callback identity independent of overlay state. The latest guards and navigation
+    // inputs are read only when the user acts, not while a shortcut animates its background.
+    val currentDockSelect = rememberUpdatedState<(Int) -> Unit> { index ->
+        if (index == 2) {
+            sidebarPage = HomeSidebarDestination.Settings
+            screen = Screen.Config
+        } else requestSettingsExit {
+            homeMode = if (index == 0) HomeMode.Day else HomeMode.Week
+            screen = Screen.Home
+        }
+    }
+    val dockSelect = remember { { index: Int -> currentDockSelect.value(index) } }
+    val currentOrdinaryDockHome = rememberUpdatedState<() -> Unit> {
+        requestSettingsExit { screen = Screen.Home }
+    }
+    val ordinaryDockHome = remember { { currentOrdinaryDockHome.value() } }
+    val currentDockOpenMenu = rememberUpdatedState<(Rect, GraphicsLayer) -> Unit> { bounds, returnButtonLayer ->
+        if (!homeBackgroundOverlayActive && !homeDialogVisible) {
+            dockImportReturnLayer = returnButtonLayer
+            dockImportButtonBounds = bounds
+            homeMenuFromDock = true
+            homeAddMenuBoundsInRoot = null
+            homeAnchoredOverlayRequest = HomeAnchoredOverlayRequest(
+                HomeAnchoredOverlayKind.Add, bounds, fromDock = true
+            )
+        }
+    }
+    val dockOpenMenu = remember {
+        { bounds: Rect, layer: GraphicsLayer -> currentDockOpenMenu.value(bounds, layer) }
+    }
     CompositionLocalProvider(
         LocalHomeAssistant provides homeAssistant,
         LocalDayAgentCountdownCinematic provides dayAgentCountdownCinematic,
@@ -2406,6 +2492,12 @@ fun CourseScheduleAppUi(
         LocalStartupPhase provides startupPhase,
         LocalGlassQuality provides glassQuality,
         LocalAdaptiveGlass provides adaptiveGlassState,
+        com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsDockAccent provides colorOsActiveDockAccent,
+        com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsButtonAccent provides colorOsHomeAccents?.button,
+        com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsHomeChromeStyle provides
+            homeNeutralChromeStyle.takeIf { screen is Screen.Home },
+        com.xiaomanjun.sleepdownschedule.coloros.LocalColorOsOverflowMenu provides
+            colorOsOverflowActions.takeIf { parallelPhoneNavigation },
         LocalHomeReadability provides homeReadabilityContext,
         LocalCourseCardPalette provides homeCoursePalette,
         LocalCourseCardColorAssignments provides homeCourseColorAssignments,
@@ -2500,6 +2592,186 @@ fun CourseScheduleAppUi(
                 ) {
                     GlassMiuixSettingsTheme(settingsVisualConfig(state.config)) {
                         MiuixPopupHost()
+                        // A fresh, local sheet host is a sibling of every page producer.
+                        QuickScheduleSettingsSheets(
+                            draft = quickScheduleDraft,
+                            config = state.config,
+                            // The home/chrome producers are siblings below the sheet, so this remains a real
+                            // liquid backdrop without ever recording the dialog that consumes it. In particular,
+                            // do not restore the former root-level quickSheetBackdrop: it caused the native
+                            // RenderThread recursion when the new-schedule sheet opened after Picker exit.
+                            backdrop = if (pickerState.overlayVisible) pickerSceneBackdrop else chromeBackdrop,
+                            onDraftChange = { quickScheduleDraft = it },
+                            onDismiss = { quickScheduleDraft = null },
+                            onDismissFinished = {
+                                // Direct customization leaves the manager below the sheet. New-schedule setup
+                                // still returns through the existing home-to-picker Morph after its sheet closes.
+                                if (!pickerState.overlayVisible) {
+                                    pickerState.phase = CustomizeUiState.Home
+                                    enterCustomizePage()
+                                }
+                            },
+                            onSave = { draft, onSaved ->
+                                val latest = latestAllSchedulesState.value
+                                val baseConfig = latest.allConfigs.firstOrNull { it.id == draft.scheduleId }
+                                    ?: return@QuickScheduleSettingsSheets
+                                val totalWeeks = draft.totalWeeks.coerceIn(1, 60)
+                                val manualWeek = draft.currentWeek.coerceIn(1, totalWeeks)
+                                val datedConfig = baseConfig.copy(
+                                    totalWeeks = totalWeeks,
+                                    currentWeek = manualWeek,
+                                    termStartDate = draft.termStartDate.ifBlank { null },
+                                    autoCurrentWeek = draft.autoCurrentWeek,
+                                    hideEmptyWeekends = draft.hideEmptyWeekends,
+                                    showNonCurrentWeekCourses = draft.showNonCurrentWeekCourses
+                                )
+                                val periods = latest.allPeriods.filter { it.scheduleId == draft.scheduleId }
+                                    .ifEmpty { defaultPeriods(draft.scheduleId) }
+                                viewModel.saveConfigForSchedule(
+                                    draft.scheduleId,
+                                    // The automatic display week is derived at runtime. Persist the
+                                    // selected fallback instead of writing a clamped pre-term week 1.
+                                    datedConfig.copy(currentWeek = manualWeek),
+                                    periods,
+                                    onSaved
+                                )
+                            },
+                            suppressDetailedButton = detailMorphState !is DetailMorphState.Idle,
+                            onDetailedSettings = { scheduleId, resolveSourceBounds, sourceWindow, saveBeforeOpening ->
+                                if (homeAdaptiveMetrics.isTabletLandscape) {
+                                    saveBeforeOpening {
+                                        appScope.launch {
+                                            context.openRegisteredActivity(
+                                                TransitionRouteId.QuickSheetToSettingsDetail,
+                                                Intent(context, QuickSheetSettingsDetailActivity::class.java)
+                                                    .putExtra(SettingsDetailPageExtra, SettingsPage.Schedule.name)
+                                                    .putExtra(ScheduleCustomizeIdExtra, scheduleId)
+                                            )
+                                        }
+                                    }
+                                    return@QuickScheduleSettingsSheets
+                                }
+                                // The detailed page is the real cross-activity SettingsDetailActivity opened
+                                // through the shared transition framework (QuickSheetToSettingsDetail route).
+                                if (detailMorphState !is DetailMorphState.Idle) {
+                                    return@QuickScheduleSettingsSheets
+                                }
+                                val activity = context.findActivity() ?: return@QuickScheduleSettingsSheets
+                                val detailInputNanos = System.nanoTime()
+                                appScope.launch {
+                                    suspend fun capturePopupFrame(): Bitmap? {
+                                        detailPopupCaptureActive = true
+                                        val requestedToken = detailPopupCaptureToken + 1
+                                        detailPopupCaptureToken = requestedToken
+                                        var waitedFrames = 0
+                                        while (
+                                            detailPopupCapturedToken.get() != requestedToken &&
+                                            waitedFrames < 4
+                                        ) {
+                                            withFrameNanos { }
+                                            waitedFrames += 1
+                                        }
+                                        if (detailPopupCapturedToken.get() != requestedToken) return null
+                                        return runCatching {
+                                            detailPopupGraphicsLayer.toImageBitmap().asAndroidBitmap()
+                                        }.getOrNull()
+                                    }
+
+                                    // Capture after the dialog has finished its IME resize. A layout-time
+                                    // rectangle is stale when WindowManager repositions the floating window.
+                                    val inputWindow = sourceWindow ?: activity.window
+                                    inputWindow.currentFocus?.clearFocus()
+                                    androidx.core.view.WindowCompat.getInsetsController(inputWindow, inputWindow.decorView)
+                                        .hide(androidx.core.view.WindowInsetsCompat.Type.ime())
+                                    kotlinx.coroutines.withTimeoutOrNull(750L) {
+                                        while (inputWindow.decorView.rootWindowInsets
+                                                ?.isVisible(android.view.WindowInsets.Type.ime()) == true) withFrameNanos { }
+                                    }
+                                    withFrameNanos { }
+                                    withFrameNanos { }
+                                    val sourceBoundsInWindow = resolveSourceBounds()
+
+                                    // Let the released press state reach the source window before copying its
+                                    // final compositor output. This is the authoritative path for the custom
+                                    // schedule picker, whose nested RenderNodes cannot be flattened reliably by
+                                    // recording only the outer Compose layer.
+                                    withFrameNanos { }
+                                    val windowSnapshot = captureDetailMorphWindowSnapshot(
+                                        activity = activity,
+                                        rootPositionInWindow = homeRootPositionInWindow,
+                                        rootSize = homeReadabilityRootSize,
+                                        overlayWindow = sourceWindow
+                                    )
+                                    val layeredSnapshot = if (windowSnapshot == null && sourceWindow == null) {
+                                        val sourceUnderlaySnapshot = runCatching {
+                                            detailScreenGraphicsLayer.toImageBitmap().asAndroidBitmap()
+                                        }.getOrNull()
+                                        val sourcePopupSnapshot = try {
+                                            capturePopupFrame()
+                                        } finally {
+                                            detailPopupCaptureActive = false
+                                        }
+                                        if (sourceUnderlaySnapshot != null && sourcePopupSnapshot != null) {
+                                            composeDetailMorphSnapshot(sourceUnderlaySnapshot, sourcePopupSnapshot)
+                                        } else {
+                                            null
+                                        }
+                                    } else {
+                                        null
+                                    }
+                                    val fullSnapshot = windowSnapshot?.bitmap ?: layeredSnapshot
+                                    // This source is not a normal page: the home underlay and QuickSheet are two
+                                    // sibling draw layers in the root Miuix Scaffold. Preserve their already
+                                    // composed frame for the destination-side depth/blur renderer; cross-window
+                                    // blur cannot reconstruct that Compose backdrop topology on ColorOS.
+                                    val snapshotOriginInWindow = windowSnapshot?.originInWindow
+                                        ?: homeRootPositionInWindow
+                                    val sourceBoundsInSnapshot = sourceBoundsInWindow?.translate(-snapshotOriginInWindow)
+                                    val buttonSnapshot = sourceBoundsInSnapshot?.let { bounds ->
+                                        windowSnapshot?.dialog?.let { layer ->
+                                            layer.foreground.cropToAnchoredBounds(bounds.translate(-layer.windowBounds.topLeft))
+                                        } ?: fullSnapshot?.cropToAnchoredBounds(bounds)
+                                    }
+                                    com.xiaomanjun.sleepdownschedule.glass.GlassBackendTrace.durationSince(
+                                        "Detail.InputThroughCapture", detailInputNanos
+                                    )
+                                    val openingAnchor = if (sourceBoundsInSnapshot == null ||
+                                        (sourceWindow != null && fullSnapshot == null)) null else TransitionAnchorFrame(
+                                        boundsInWindow = sourceBoundsInSnapshot,
+                                        cornerRadiusPx = with(density) { 25.dp.toPx() },
+                                        bitmap = buttonSnapshot
+                                    )
+                                    // The destination must not race the draft write. Keeping the real button in
+                                    // place while saving gives the translucent destination an unchanged live
+                                    // underlay and ensures the first detailed-settings composition sees the
+                                    // committed values.
+                                    val detailSaveNanos = System.nanoTime()
+                                    saveBeforeOpening {
+                                        com.xiaomanjun.sleepdownschedule.glass.GlassBackendTrace.durationSince(
+                                            "Detail.Save", detailSaveNanos
+                                        )
+                                        appScope.launch {
+                                            com.xiaomanjun.sleepdownschedule.glass.GlassBackendTrace.durationSince(
+                                                "Detail.InputToOpenDispatch", detailInputNanos
+                                            )
+                                            ActivityTransitionCoordinator.open(
+                                                activity = activity,
+                                                routeId = TransitionRouteId.QuickSheetToSettingsDetail,
+                                                intent = Intent(activity, QuickSheetSettingsDetailActivity::class.java)
+                                                    .putExtra(SettingsDetailPageExtra, SettingsPage.Schedule.name)
+                                                    .putExtra(ScheduleCustomizeIdExtra, scheduleId),
+                                                payload = TransitionPayload(
+                                                    openingAnchor = openingAnchor,
+                                                    returnAnchorProvider = StaticTransitionAnchorProvider(openingAnchor),
+                                                    backgroundBitmap = fullSnapshot,
+                                                    backgroundDialog = windowSnapshot?.dialog
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
 
@@ -2625,6 +2897,11 @@ fun CourseScheduleAppUi(
                 drawContent()
             }
     ) {
+        val nativeHomeDockAvailable = nativeVisuals
+        val dockVisible = !homeAdaptiveMetrics.isLargeScreen && (screen is Screen.Home || screen is Screen.Config)
+        val dockSelectedIndex = if (screen is Screen.Config) 2 else if (homeMode == HomeMode.Day) 0 else 1
+        val dockConfig = if (screen is Screen.Home) visualState.config else state.config
+        val dockButtonHidden = homeMenuFromDock && addButtonHidden
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -2763,6 +3040,7 @@ fun CourseScheduleAppUi(
                             .zIndex(11f)
                             .homeCountdownShockwave(0.75f)
                     ) {
+                        CompositionLocalProvider(LocalToolbarBackdropBlurred provides homeContentUnderTopBar) {
                         AppTopBar(
                             screen = Screen.Home,
                             state = visualState,
@@ -2790,6 +3068,7 @@ fun CourseScheduleAppUi(
                             },
                             onBackHome = { screen = Screen.Home }
                         )
+                        }
                     }
                     if (weekViewStyle == WeekViewStyle.BOUNDLESS) {
                         // Boundless week header lives on the top bar layer (above the gradient
@@ -3098,57 +3377,48 @@ fun CourseScheduleAppUi(
                 showScheduleEntryPill = false
                 if (pickerState.phase is CustomizeUiState.ShowingEntryButton) pickerState.phase = CustomizeUiState.Home
             }
-            if (!homeAdaptiveMetrics.isLargeScreen && (screen is Screen.Home || screen is Screen.Config)) {
-                DockEntranceContainer(
-                    phase = startupPhase,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .zIndex(100f)
-                        .homeCountdownShockwave(0.85f)
-                ) {
-                    if (parallelPhoneNavigation) {
-                        val dockButtonView = LocalView.current
-                        ParallelHomeDock(
-                            selectedIndex = if (screen is Screen.Config) 2 else if (homeMode == HomeMode.Day) 0 else 1,
-                            backdrop = chromeBackdrop,
-                            config = if (screen is Screen.Home) visualState.config else state.config,
-                            onSelect = { index ->
-                                if (index == 2) {
-                                    sidebarPage = HomeSidebarDestination.Settings
-                                    screen = Screen.Config
-                                } else requestSettingsExit {
-                                    homeMode = if (index == 0) HomeMode.Day else HomeMode.Week
-                                    screen = Screen.Home
-                                }
-                            },
-                            buttonHidden = homeMenuFromDock && addButtonHidden,
-                            onOpenMenu = { bounds, returnButtonLayer ->
-                                if (!homeBackgroundOverlayActive && !homeDialogVisible) {
-                                    performButtonHaptic(dockButtonView)
-                                    dockImportReturnLayer = returnButtonLayer
-                                    dockImportButtonBounds = bounds
-                                    homeMenuFromDock = true
-                                    homeAddMenuBoundsInRoot = null
-                                    homeAnchoredOverlayRequest = HomeAnchoredOverlayRequest(
-                                        HomeAnchoredOverlayKind.Add, bounds, fromDock = true
-                                    )
-                                }
-                            }
-                        )
-                    } else FloatingDock(
-                        selected = screen,
-                        backdrop = chromeBackdrop,
-                        config = if (screen is Screen.Home) visualState.config else state.config,
-                        onHome = { requestSettingsExit { screen = Screen.Home } },
-                        onConfig = {
-                            sidebarPage = HomeSidebarDestination.Settings
-                            screen = Screen.Config
-                        }
-                    )
-                }
-            }
+            if (!nativeHomeDockAvailable) HomeDockChrome(
+                visible = dockVisible,
+                parallel = parallelPhoneNavigation,
+                selectedIndex = dockSelectedIndex,
+                config = dockConfig,
+                backdrop = chromeBackdrop,
+                phase = startupPhase,
+                buttonHidden = dockButtonHidden,
+                onSelect = dockSelect,
+                onOrdinaryHome = ordinaryDockHome,
+                onOpenMenu = dockOpenMenu,
+                modifier = Modifier.align(Alignment.BottomStart).zIndex(100f)
+            )
         }
         }
+
+    } // end course/frozen locals
+
+    // Capture the complete page, including its native Dock, at full size before the outer
+    // shortcut blur downsamples it. Native material corners must not first render into the
+    // reduced blur pass. Keep inputs outside course-only locals to avoid native recomposition.
+    // The Compose fallback captures backdrop/config state that the native Dock never uses.
+    // Keep that changing closure behind State, so it cannot invalidate the native host.
+    val nativeDockFallback = rememberUpdatedState<@Composable () -> Unit> {
+        HomeDockChrome(dockVisible, parallelPhoneNavigation, dockSelectedIndex, dockConfig,
+            chromeBackdrop, startupPhase, dockButtonHidden, dockSelect, ordinaryDockHome, dockOpenMenu)
+    }
+    if (nativeHomeDockAvailable) com.xiaomanjun.sleepdownschedule.coloros.NativeHomeDockChrome(
+        visible = dockVisible,
+        parallel = parallelPhoneNavigation,
+        selectedIndex = dockSelectedIndex,
+        dark = if (screen is Screen.Home) appDarkTheme else appUsesDarkTheme(state.config),
+        alignment = dockConfig.dockAlignment,
+        buttonHidden = dockButtonHidden,
+        onSelect = dockSelect,
+        onHome = ordinaryDockHome,
+        onOpenMenu = dockOpenMenu,
+        phase = startupPhase,
+        fallback = nativeDockFallback,
+        modifier = Modifier.align(Alignment.BottomStart)
+    )
+    } // end cached page content, including native Dock
 
         // This control intentionally lives outside the recorded home layer. It can be visible
         // while the real home is pre-captured without becoming part of its own preview bitmap.
@@ -3284,11 +3554,9 @@ fun CourseScheduleAppUi(
             // that does not contain the later quick-settings sheet consumer.
             modifier = Modifier.glassBackdropProducer(pickerSceneBackdrop)
         )
-    }
-    } // end frozen background locals
-    } // end cached home content
     } // end HomeBackgroundBlurLayer
     } // end HomeBackgroundZoomLayer
+    } // end assistant background depth
 
     val latestOpenHomeMenuDestination = rememberUpdatedState<(HomeMenuDestinationKind) -> Unit> {
         kind -> openHomeMenuDestination(kind)
@@ -3512,6 +3780,21 @@ fun CourseScheduleAppUi(
             }
         )
     }
+
+    val latestNativeCourseManagement = rememberUpdatedState<() -> Unit> {
+        val activity = context.findActivity()
+        if (activity != null && !activity.isFinishing) {
+            // NativeOverflowMenu invokes this only after COUI has finished retracting its window.
+            ActivityTransitionCoordinator.openImmediate(activity, TransitionRouteId.HomeMenuToCourseManagement,
+                Intent(context, com.xiaomanjun.sleepdownschedule.feature.experimental.colorosui.ColorOsCourseManagementActivity::class.java)
+                    .putCourseManagementInitialState(state))
+        }
+    }
+    val nativeOverflowActions = remember(homeAddActions) {
+        listOf(AddMenuAction(R.drawable.ic_courses, "课程管理") { latestNativeCourseManagement.value() }) +
+            homeAddActions.takeLast(2)
+    }
+    androidx.compose.runtime.SideEffect { colorOsOverflowActions.value = nativeOverflowActions }
 
     fun runSidebarAction(action: () -> Unit) {
         if (pickerState.phase is CustomizeUiState.Picker) {
@@ -3904,169 +4187,6 @@ fun CourseScheduleAppUi(
         }
     )
     GlassMiuixSettingsTheme(settingsVisualConfig(state.config)) {
-        QuickScheduleSettingsSheets(
-            draft = quickScheduleDraft,
-            config = state.config,
-            // The home/chrome producers are siblings below the sheet, so this remains a real
-            // liquid backdrop without ever recording the dialog that consumes it. In particular,
-            // do not restore the former root-level quickSheetBackdrop: it caused the native
-            // RenderThread recursion when the new-schedule sheet opened after Picker exit.
-            backdrop = if (pickerState.overlayVisible) pickerSceneBackdrop else chromeBackdrop,
-            onDraftChange = { quickScheduleDraft = it },
-            onDismiss = { quickScheduleDraft = null },
-            onDismissFinished = {
-                // Direct customization leaves the manager below the sheet. New-schedule setup
-                // still returns through the existing home-to-picker Morph after its sheet closes.
-                if (!pickerState.overlayVisible) {
-                    pickerState.phase = CustomizeUiState.Home
-                    enterCustomizePage()
-                }
-            },
-            onSave = { draft, onSaved ->
-                val latest = latestAllSchedulesState.value
-                val baseConfig = latest.allConfigs.firstOrNull { it.id == draft.scheduleId }
-                    ?: return@QuickScheduleSettingsSheets
-                val totalWeeks = draft.totalWeeks.coerceIn(1, 60)
-                val manualWeek = draft.currentWeek.coerceIn(1, totalWeeks)
-                val datedConfig = baseConfig.copy(
-                    totalWeeks = totalWeeks,
-                    currentWeek = manualWeek,
-                    termStartDate = draft.termStartDate.ifBlank { null },
-                    autoCurrentWeek = draft.autoCurrentWeek,
-                    hideEmptyWeekends = draft.hideEmptyWeekends,
-                    showNonCurrentWeekCourses = draft.showNonCurrentWeekCourses
-                )
-                val periods = latest.allPeriods.filter { it.scheduleId == draft.scheduleId }
-                    .ifEmpty { defaultPeriods(draft.scheduleId) }
-                viewModel.saveConfigForSchedule(
-                    draft.scheduleId,
-                    // The automatic display week is derived at runtime. Persist the
-                    // selected fallback instead of writing a clamped pre-term week 1.
-                    datedConfig.copy(currentWeek = manualWeek),
-                    periods,
-                    onSaved
-                )
-            },
-            suppressDetailedButton = detailMorphState !is DetailMorphState.Idle,
-            onDetailedSettings = { scheduleId, sourceBoundsInWindow, saveBeforeOpening ->
-                if (homeAdaptiveMetrics.isTabletLandscape) {
-                    saveBeforeOpening {
-                        appScope.launch {
-                            context.openRegisteredActivity(
-                                TransitionRouteId.QuickSheetToSettingsDetail,
-                                Intent(context, QuickSheetSettingsDetailActivity::class.java)
-                                    .putExtra(SettingsDetailPageExtra, SettingsPage.Schedule.name)
-                                    .putExtra(ScheduleCustomizeIdExtra, scheduleId)
-                            )
-                        }
-                    }
-                    return@QuickScheduleSettingsSheets
-                }
-                // The detailed page is the real cross-activity SettingsDetailActivity opened
-                // through the shared transition framework (QuickSheetToSettingsDetail route).
-                if (detailMorphState !is DetailMorphState.Idle) {
-                    return@QuickScheduleSettingsSheets
-                }
-                val activity = context.findActivity() ?: return@QuickScheduleSettingsSheets
-                val detailInputNanos = System.nanoTime()
-                appScope.launch {
-                    suspend fun capturePopupFrame(): Bitmap? {
-                        detailPopupCaptureActive = true
-                        val requestedToken = detailPopupCaptureToken + 1
-                        detailPopupCaptureToken = requestedToken
-                        var waitedFrames = 0
-                        while (
-                            detailPopupCapturedToken.get() != requestedToken &&
-                            waitedFrames < 4
-                        ) {
-                            withFrameNanos { }
-                            waitedFrames += 1
-                        }
-                        if (detailPopupCapturedToken.get() != requestedToken) return null
-                        return runCatching {
-                            detailPopupGraphicsLayer.toImageBitmap().asAndroidBitmap()
-                        }.getOrNull()
-                    }
-
-                    // Let the released press state reach the source window before copying its
-                    // final compositor output. This is the authoritative path for the custom
-                    // schedule picker, whose nested RenderNodes cannot be flattened reliably by
-                    // recording only the outer Compose layer.
-                    withFrameNanos { }
-                    val windowSnapshot = captureDetailMorphWindowSnapshot(
-                        activity = activity,
-                        rootPositionInWindow = homeRootPositionInWindow,
-                        rootSize = homeReadabilityRootSize
-                    )
-                    val layeredSnapshot = if (windowSnapshot == null) {
-                        val sourceUnderlaySnapshot = runCatching {
-                            detailScreenGraphicsLayer.toImageBitmap().asAndroidBitmap()
-                        }.getOrNull()
-                        val sourcePopupSnapshot = try {
-                            capturePopupFrame()
-                        } finally {
-                            detailPopupCaptureActive = false
-                        }
-                        if (sourceUnderlaySnapshot != null && sourcePopupSnapshot != null) {
-                            composeDetailMorphSnapshot(sourceUnderlaySnapshot, sourcePopupSnapshot)
-                        } else {
-                            null
-                        }
-                    } else {
-                        null
-                    }
-                    val fullSnapshot = windowSnapshot?.bitmap ?: layeredSnapshot
-                    // This source is not a normal page: the home underlay and QuickSheet are two
-                    // sibling draw layers in the root Miuix Scaffold. Preserve their already
-                    // composed frame for the destination-side depth/blur renderer; cross-window
-                    // blur cannot reconstruct that Compose backdrop topology on ColorOS.
-                    val snapshotOriginInWindow = windowSnapshot?.originInWindow
-                        ?: homeRootPositionInWindow
-                    val sourceBoundsInSnapshot = Rect(
-                        left = sourceBoundsInWindow.left - snapshotOriginInWindow.x,
-                        top = sourceBoundsInWindow.top - snapshotOriginInWindow.y,
-                        right = sourceBoundsInWindow.right - snapshotOriginInWindow.x,
-                        bottom = sourceBoundsInWindow.bottom - snapshotOriginInWindow.y
-                    )
-                    val buttonSnapshot = fullSnapshot?.cropToAnchoredBounds(sourceBoundsInSnapshot)
-                    com.xiaomanjun.sleepdownschedule.glass.GlassBackendTrace.durationSince(
-                        "Detail.InputThroughCapture", detailInputNanos
-                    )
-                    val openingAnchor = TransitionAnchorFrame(
-                        boundsInWindow = sourceBoundsInWindow,
-                        cornerRadiusPx = with(density) { 25.dp.toPx() },
-                        bitmap = buttonSnapshot
-                    )
-                    // The destination must not race the draft write. Keeping the real button in
-                    // place while saving gives the translucent destination an unchanged live
-                    // underlay and ensures the first detailed-settings composition sees the
-                    // committed values.
-                    val detailSaveNanos = System.nanoTime()
-                    saveBeforeOpening {
-                        com.xiaomanjun.sleepdownschedule.glass.GlassBackendTrace.durationSince(
-                            "Detail.Save", detailSaveNanos
-                        )
-                        appScope.launch {
-                            com.xiaomanjun.sleepdownschedule.glass.GlassBackendTrace.durationSince(
-                                "Detail.InputToOpenDispatch", detailInputNanos
-                            )
-                            ActivityTransitionCoordinator.open(
-                                activity = activity,
-                                routeId = TransitionRouteId.QuickSheetToSettingsDetail,
-                                intent = Intent(activity, QuickSheetSettingsDetailActivity::class.java)
-                                    .putExtra(SettingsDetailPageExtra, SettingsPage.Schedule.name)
-                                    .putExtra(ScheduleCustomizeIdExtra, scheduleId),
-                                payload = TransitionPayload(
-                                    openingAnchor = openingAnchor,
-                                    returnAnchorProvider = StaticTransitionAnchorProvider(openingAnchor),
-                                    backgroundBitmap = fullSnapshot
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        )
 
         // Keep the course editor inside the same root stack as the stock MIUIX popup
         // host. The host stays in its 1.0.6 position and therefore preserves the manager
@@ -4156,7 +4276,7 @@ fun CourseScheduleAppUi(
             title = "启用每日免费 AI？",
             message = "SleepDown 为尚未配置模型服务的用户提供每日免费 AI 额度，可用于 AI 助理、AI 对话和 AI 教务导入。固定使用 gpt-5.6-luna 与 Responses 接口，可随时在 AI 设置中切换或关闭。",
             actions = listOf(
-                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Cancel) {
                     AiImportSettingsStore.declineManagedFreeAi(context)
                     showManagedFreeAiOffer = false
                 },
@@ -4225,7 +4345,7 @@ fun CourseScheduleAppUi(
                     append("停课当天的课程会保留为灰色卡片，补课日按原课程日期上课。")
                 },
                 actions = listOf(
-                    LiquidAlertAction("稍后再说", LiquidAlertActionStyle.Secondary) {
+                    LiquidAlertAction("稍后再说", LiquidAlertActionStyle.Cancel) {
                         upcomingHoliday = null
                     },
                     LiquidAlertAction("去设置", LiquidAlertActionStyle.Primary) {
@@ -4473,12 +4593,13 @@ fun CourseScheduleAppUi(
                 }
             )
         } else {
-        Dialog(
+        com.xiaomanjun.sleepdownschedule.coloros.ColorOsOrComposeDialog(
+            config = state.config,
+            visible = homeDialogVisible,
             onDismissRequest = {
                 if (dialog is HomeDialog.EditCourse) homeCourseDismissHandler?.invoke() ?: dismissHomeDialog()
                 else dismissHomeDialog()
-            },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            }
         ) {
             if (dialog is HomeDialog.ImportSchedule) {
                 val dialogView = LocalView.current
@@ -4493,7 +4614,7 @@ fun CourseScheduleAppUi(
             }
             val animatedDialogContent: @Composable () -> Unit = {
                 AnimatedVisibility(
-                    visible = homeDialogVisible,
+                    visible = homeDialogVisible || com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeDialogSurface.current,
                     enter = popEnterTransition(),
                     exit = popExitTransition()
                 ) {
@@ -4689,6 +4810,12 @@ private fun HomeBackgroundBlurLayer(
     // Its alpha can hide the sharp pass without changing the scene shared by foreground glass.
     val clearSceneLayer = rememberGraphicsLayer()
     val frozenBlurLayer = rememberGraphicsLayer()
+    val liveSceneLayer = rememberGraphicsLayer()
+    val latestBlurProgress = rememberUpdatedState(blurProgress)
+    val latestUseFrozenScene = rememberUpdatedState(useFrozenHomeScene)
+    val recordLiveScene by remember {
+        derivedStateOf { !latestUseFrozenScene.value() && latestBlurProgress.value() > 0f }
+    }
     val frozenRecordKey = remember { AtomicReference<Any?>(null) }
     val frozenRecordSize = remember { AtomicReference(IntSize.Zero) }
     val sampleScale = HomeFrozenBlurSampleScale
@@ -4721,13 +4848,18 @@ private fun HomeBackgroundBlurLayer(
                 val step = quantizeHomeBackgroundBlurStep(progress, isClosing)
                 if (frozenHomeScene) {
                     renderEffect = null
+                    liveSceneLayer.renderEffect = null
                     val blurAlpha = homeFrozenBlurAlpha(progress)
                     clearSceneLayer.alpha = if (blurAlpha < 1f) 1f else 0f
                     frozenBlurLayer.alpha = blurAlpha
                     frozenBlurLayer.renderEffect =
                         frozenBlurEffects[step.coerceAtLeast(HomeFrozenBlurMinimumStep)]
                 } else {
-                    renderEffect = liveBlurEffects[step]
+                    // Keep native Views under a neutral parent while personalization is live.
+                    // Blur a full-size recorded layer, as the frozen path already does, instead
+                    // of repeatedly changing the ancestor effect used by COUI's own sampling.
+                    renderEffect = null
+                    liveSceneLayer.renderEffect = liveBlurEffects[step]
                     clearSceneLayer.alpha = 0f
                     frozenBlurLayer.alpha = 0f
                     frozenBlurLayer.renderEffect = null
@@ -4739,7 +4871,12 @@ private fun HomeBackgroundBlurLayer(
                 val frozenHomeScene = useFrozenHomeScene()
                 if (!frozenHomeScene) {
                     frozenRecordKey.set(null)
-                    drawContent()
+                    if (recordLiveScene) {
+                        liveSceneLayer.record { this@drawWithContent.drawContent() }
+                        drawLayer(liveSceneLayer)
+                    } else {
+                        drawContent()
+                    }
                     return@drawWithContent
                 }
 
@@ -5176,7 +5313,7 @@ internal fun AppTopBar(
                     when (settingsPage) {
                         SettingsPage.Root -> "设置"
                         SettingsPage.General -> "通用设置"
-                        SettingsPage.LiquidGlass -> "液态玻璃"
+                        SettingsPage.LiquidGlass -> "视效设置"
                         SettingsPage.Widgets -> "小组件设置"
                         SettingsPage.AiImport -> "AI 设置"
                         SettingsPage.DayAgent -> "AI 助理"
@@ -5236,6 +5373,11 @@ internal fun CourseBoundsSource(
 
 @Composable
 fun TopBackButton(backdrop: Backdrop?, config: ScheduleConfigEntity, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    if (ColorOsHomeIconButton(
+            iconRes = R.drawable.ic_arrow_back, contentDescription = "返回",
+            dark = appUsesDarkTheme(config), interactive = true, selected = false,
+            modifier = modifier.size(42.dp), onClick = onClick, toolbarNavigation = true
+        )) return
     TopGlassIconButton(
         backdrop = backdrop,
         config = config,
@@ -5259,6 +5401,8 @@ fun TopGlassIconButton(
     buttonHeight: Dp = 42.dp
 ) {
     val lightGlass = glassUsesLightStyle(config)
+    if (ColorOsHomeIconButton(iconRes, contentDescription, dark = !lightGlass,
+            interactive = true, selected = false, modifier = modifier.size(buttonHeight), onClick = onClick)) return
     if (backdrop != null) {
         LiquidButton(
             onClick = onClick,
@@ -5459,6 +5603,8 @@ fun HomeIconButton(
             modifier = Modifier.fillMaxSize(),
             isInteractive = visible,
             pressSnapshot = pressSnapshot,
+            // COUI owns touch animation and haptics; only forward the business action.
+            onNativeClick = { onClick(1f) },
             onClick = {
                 performButtonHaptic(view)
                 onClick(capturedScale())
@@ -5478,10 +5624,20 @@ internal fun HomeIconButtonVisual(
     accentColor: ComposeColor = ComposeColor.Unspecified,
     isInteractive: Boolean = true,
     pressSnapshot: LiquidButtonPressSnapshot? = null,
+    onNativeClick: (() -> Unit)? = null,
     onClick: () -> Unit = {}
 ) {
     val adaptiveGlass = LocalAdaptiveGlass.current
     val lightGlass = adaptiveGlass.lightGlass
+    if (ColorOsHomeIconButton(
+            iconRes = iconRes,
+            contentDescription = contentDescription,
+            dark = !lightGlass,
+            interactive = isInteractive,
+            selected = selected,
+            modifier = modifier,
+            onClick = onNativeClick ?: onClick
+        )) return
     val baseSurfaceColor = if (lightGlass) HomeLightGlassSurfaceColor else ComposeColor(0xFF121212)
     val buttonSurfaceColor = if (accentColor.isSpecified) {
         accentColor.copy(alpha = if (lightGlass) HomeLightGlassAccentTintAlpha else 0.32f)
@@ -5554,9 +5710,10 @@ fun AddMenuLiquidItem(
     itemHeight: Dp,
     highlighted: Boolean,
     modifier: Modifier = Modifier,
-    compactCapsule: Boolean = false
+    compactCapsule: Boolean = false,
+    foreground: ComposeColor = glassForegroundColor(config)
 ) {
-    val baseText = glassForegroundColor(config)
+    val baseText = foreground
     val selectedColor = ComposeColor(0xFF8E8E93).copy(
         alpha = if (glassUsesLightStyle(config)) 0.20f else 0.28f
     )
@@ -5667,22 +5824,14 @@ fun FloatingDock(
             .graphicsLayer { translationY = imeCompensationPx.toFloat() },
         contentAlignment = dockAlignment
     ) {
-        if (backdrop != null) {
-            CompositionLocalProvider(LocalContentColor provides dockTextColor) {
-                HomeDockTabs(
-                    selectedIndex = if (selected is Screen.Home) 0 else 1, parallel = false,
-                    config = config, backdrop = backdrop, lightGlass = lightGlass,
-                    modifier = Modifier.width(140.dp).excludeHomeAssistantPull(),
-                    onSelect = { index -> if (index == 0) onHome() else onConfig() }
-                )
-            }
-        } else {
-            GlassPill(backdrop = null, config = config, modifier = Modifier.width(140.dp).excludeHomeAssistantPull()) {
-                Row(modifier = Modifier.height(54.dp).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    DockItem(selected is Screen.Home, null, config, R.drawable.ic_week_view, "课程", onHome)
-                    DockItem(selected is Screen.Config, null, config, R.drawable.ic_settings, "设置", onConfig)
-                }
-            }
+        CompositionLocalProvider(LocalContentColor provides dockTextColor) {
+            HomeDockTabs(
+                selectedIndex = if (selected is Screen.Home) 0 else 1, parallel = false,
+                config = config, backdrop = backdrop, lightGlass = lightGlass,
+                modifier = Modifier.width(com.xiaomanjun.sleepdownschedule.coloros
+                    .colorOsOrdinaryDockWidth()).excludeHomeAssistantPull(),
+                onSelect = { index -> if (index == 0) onHome() else onConfig() }
+            )
         }
     }
 }
@@ -5727,17 +5876,23 @@ fun ScheduleManagerEntryPill(
     ) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(animationSpec = tween(320)) +
-                scaleIn(initialScale = 0.4f, animationSpec = tween(320, easing = CubicBezierEasing(0.2f, 0.75f, 0.2f, 1f))),
-            exit = fadeOut(animationSpec = tween(120)) +
-                scaleOut(targetScale = 0.4f, animationSpec = tween(120))
+            enter = scaleIn(initialScale = 0.4f, animationSpec = tween(320, easing = CubicBezierEasing(0.2f, 0.75f, 0.2f, 1f))),
+            exit = scaleOut(targetScale = 0.4f, animationSpec = tween(120))
         ) {
+            val entryAlpha by transition.animateFloat(
+                transitionSpec = { tween(if (targetState == androidx.compose.animation.EnterExitState.Visible) 320 else 120) },
+                label = "schedule settings entry alpha"
+            ) { if (it == androidx.compose.animation.EnterExitState.Visible) 1f else 0f }
+            val entryModifier = Modifier.graphicsLayer {
+                alpha = entryAlpha
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+            }
             val lightGlass = glassUsesLightStyle(config)
             if (backdrop != null) {
                 LiquidButton(
                     onClick = onClick,
                     backdrop = backdrop,
-                    modifier = Modifier.width(140.dp),
+                    modifier = entryModifier.width(140.dp),
                     height = 48.dp,
                     blurRadius = 2.dp,
                     lensHeight = 12.dp,
@@ -5760,7 +5915,7 @@ fun ScheduleManagerEntryPill(
                 GlassPill(
                     backdrop = null,
                     config = config,
-                    modifier = Modifier
+                    modifier = entryModifier
                         .width(140.dp)
                         .height(48.dp),
                     onClick = onClick
@@ -5819,6 +5974,8 @@ private const val PersonalizeCardColorChange = "card-color"
 internal const val PersonalizeCardAlphaSlider = "card-alpha"
 internal const val PersonalizeCardBlurSlider = "card-blur"
 internal const val PersonalizeCardRefractionSlider = "card-refraction"
+private const val PersonalizeNativeCardTintSlider = "native-card-tint"
+private const val PersonalizeNativeCardBlurSlider = "native-card-blur"
 internal const val PersonalizeCardFontSlider = "card-font"
 private const val PersonalizeCardGlassChange = "card-glass"
 private const val PersonalizeCardOutlineLightChange = "card-outline-light"
@@ -6276,7 +6433,7 @@ private fun CourseColorEditorDialog(
                                     modifier = Modifier.size(34.dp),
                                     height = 34.dp,
                                     contentPadding = PaddingValues(0.dp),
-                                    surfaceColor = ComposeColor(0xFF0A84FF),
+                                    surfaceColor = controlAccentColor(ComposeColor(0xFF0A84FF)),
                                     blurRadius = 7.dp,
                                     lensHeight = 11.dp,
                                     lensAmount = 15.dp,
@@ -6293,7 +6450,7 @@ private fun CourseColorEditorDialog(
                                 Surface(
                                     modifier = Modifier.size(34.dp),
                                     shape = Capsule(),
-                                    color = ComposeColor(0xFF0A84FF),
+                                    color = controlAccentColor(ComposeColor(0xFF0A84FF)),
                                     onClick = addColor
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
@@ -6373,7 +6530,12 @@ private fun WallpaperPaletteSampler(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val windowHeight = with(density) { LocalWindowInfo.current.containerSize.height.toDp() }
+    val windowHeight = with(density) {
+        (com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeDialogHostSize.current
+            ?: LocalWindowInfo.current.containerSize).height.toDp()
+    }
+    // Use the page's available height, never the animated wrap-content dialog height. Otherwise
+    // each resize changes the preview, triggers new sampling, and starts another dialog resize.
     // Miuix caps a centered dialog at two thirds of the current window. Reserve the measured
     // title, copy, actions, shell insets and compact gaps first, then let the wallpaper preview
     // consume only the remaining space. This keeps both actions inside the shell on phones with
@@ -6581,7 +6743,10 @@ fun PersonalizePanel(
     val rowDensity = LocalDensity.current
     val rowEasing = remember { CubicBezierEasing(0.22f, 0f, 0.30f, 1f) }
     val weekContentRows = if (mode == HomeMode.Week) 4 else 0
-    val rowEntranceDurationMillis = 580 + weekContentRows * 15
+    val nativeMaterialMode = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeCourseCardMode.current
+    val nativeMaterialActive = nativeMaterialMode?.enabled == true && !AppMaterialPreferences.isSuperPerformance
+    val nativeMaterialRows = if (nativeMaterialMode == null) 0 else if (nativeMaterialActive) 3 else 1
+    val rowEntranceDurationMillis = 580 + (weekContentRows + nativeMaterialRows) * 15
     LaunchedEffect(rowEntranceActive, rowEntranceDurationMillis) {
         if (rowEntranceActive) {
             withFrameNanos { }
@@ -6699,7 +6864,7 @@ fun PersonalizePanel(
                             "\u9009\u62E9\u58C1\u7EB8",
                             onClick = onPickWallpaper,
                             textColorOverride = ComposeColor.White,
-                            surfaceColorOverride = ComposeColor(0xFF0A84FF).copy(alpha = 0.72f)
+                            surfaceColorOverride = controlAccentColor(ComposeColor(0xFF0A84FF)).copy(alpha = 0.72f)
                         )
                         if (state.config.wallpaperUri != null) {
                             LiquidMenuButton(
@@ -7005,7 +7170,49 @@ fun PersonalizePanel(
                     onOpenPalette = { openCourseColorDialog(CourseCardColorMode.COLORFUL) }
                 )
                 val superPerformance = AppMaterialPreferences.isSuperPerformance
-                val glassLocked = !state.config.hasAnyWallpaper() || superPerformance
+                val glassLocked = (!state.config.hasAnyWallpaper() && !nativeMaterialActive) || superPerformance
+                nativeMaterialMode?.let { material ->
+                    Row(
+                        modifier = Modifier.rowEntrance(9 + weekContentRows).fillMaxWidth().heightIn(min = 48.dp)
+                            .personalizePreviewVisibility(previewSliderKey, previewProgress),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("ColorOS 17 凝光视效", style = MaterialTheme.typography.labelLarge)
+                        LiquidControlToggle(checked = material.enabled, compact = true,
+                            onCheckedChange = material.onEnabledChange, enabled = !superPerformance, backdrop = backdrop)
+                    }
+                    if (nativeMaterialActive) {
+                        PersonalizeValueSlider(
+                            sliderKey = PersonalizeNativeCardTintSlider,
+                            modifier = Modifier.rowEntrance(10 + weekContentRows),
+                            value = material.tintStrength, valueRange = 0f..1f, backdrop = backdrop,
+                            label = { "课程着色强度 ${(it * 100).toInt()}%" },
+                            onCommit = { material.onTintStrengthChange(it, true) },
+                            onPreviewValueChange = { material.onTintStrengthChange(it, false) },
+                            previewSliderKey = previewSliderKey, previewProgress = previewProgress,
+                            onSliderPreviewActiveChange = { key, active ->
+                                onSliderPreviewActiveChange(key, active)
+                                if (!active) material.onPreviewFinished()
+                            }, snapValue = 0.5f,
+                            onTouchActiveChange = { updateSliderTouchOwner(PersonalizeNativeCardTintSlider, it) }
+                        )
+                        PersonalizeValueSlider(
+                            sliderKey = PersonalizeNativeCardBlurSlider,
+                            modifier = Modifier.rowEntrance(11 + weekContentRows),
+                            value = material.blurPercent, valueRange = 0f..100f, backdrop = backdrop,
+                            label = { "凝光模糊 ${it.toInt()}%" },
+                            onCommit = { material.onBlurPercentChange(it, true) },
+                            onPreviewValueChange = { material.onBlurPercentChange(it, false) },
+                            previewSliderKey = previewSliderKey, previewProgress = previewProgress,
+                            onSliderPreviewActiveChange = { key, active ->
+                                onSliderPreviewActiveChange(key, active)
+                                if (!active) material.onPreviewFinished()
+                            }, snapValue = 50f,
+                            onTouchActiveChange = { updateSliderTouchOwner(PersonalizeNativeCardBlurSlider, it) }
+                        )
+                    }
+                }
                 val minimumCardAlpha = if (glassLocked) FlatCourseCardMinimumAlpha else 0f
                 val alphaLabel = when {
                     !glassLocked &&
@@ -7014,9 +7221,9 @@ fun PersonalizePanel(
                     !glassLocked && state.config.courseCardGlassEnabled -> "课程卡片着色强度"
                     else -> "课程卡片不透明度"
                 }
-                if (!superPerformance) PersonalizeValueSlider(
+                if (!superPerformance && !nativeMaterialActive) PersonalizeValueSlider(
                     sliderKey = PersonalizeCardAlphaSlider,
-                    modifier = Modifier.rowEntrance(9 + weekContentRows),
+                    modifier = Modifier.rowEntrance(9 + weekContentRows + nativeMaterialRows),
                     value = state.config.cardAlpha.coerceIn(minimumCardAlpha, 1f),
                     valueRange = minimumCardAlpha..1f,
                     backdrop = backdrop,
@@ -7042,13 +7249,13 @@ fun PersonalizePanel(
                     }
                 )
                 if (
-                    superPerformance || ((state.config.courseCardGlassEnabled || state.config.courseCardGaussianBlurEnabled) &&
-                    !glassLocked)
+                    !nativeMaterialActive && (superPerformance || ((state.config.courseCardGlassEnabled || state.config.courseCardGaussianBlurEnabled) &&
+                    !glassLocked))
                 ) {
                     val maxCourseCardBlur = courseCardBlurMaximum(state.config.courseCardGlassEnabled)
                     PersonalizeValueSlider(
                         sliderKey = PersonalizeCardBlurSlider,
-                        modifier = Modifier.rowEntrance(10 + weekContentRows),
+                        modifier = Modifier.rowEntrance(10 + weekContentRows + nativeMaterialRows),
                         value = state.config.courseCardBlur.coerceIn(0f, maxCourseCardBlur) /
                             maxCourseCardBlur * 100f,
                         valueRange = 0f..100f,
@@ -7077,7 +7284,7 @@ fun PersonalizePanel(
                 }
                 PersonalizeValueSlider(
                     sliderKey = PersonalizeCardFontSlider,
-                    modifier = Modifier.rowEntrance(11 + weekContentRows),
+                    modifier = Modifier.rowEntrance(11 + weekContentRows + nativeMaterialRows),
                     value = state.config.courseCardFontScale,
                     valueRange = 0.80f..1.35f,
                     backdrop = backdrop,
@@ -7105,7 +7312,7 @@ fun PersonalizePanel(
                 if (mode == HomeMode.Week) {
                     PersonalizeValueSlider(
                         sliderKey = PersonalizeWeekCornerSlider,
-                        modifier = Modifier.rowEntrance(12 + weekContentRows),
+                        modifier = Modifier.rowEntrance(12 + weekContentRows + nativeMaterialRows),
                         value = state.config.weekCardCornerProgress.coerceIn(0f, 1f),
                         valueRange = 0f..1f,
                         backdrop = backdrop,
@@ -7131,11 +7338,11 @@ fun PersonalizePanel(
                         }
                     )
                 }
-                if (state.config.courseCardGlassEnabled && !glassLocked &&
+                if (!nativeMaterialActive && state.config.courseCardGlassEnabled && !glassLocked &&
                     !com.xiaomanjun.sleepdownschedule.core.performance.AppMaterialPreferences.isPerformance) {
                     PersonalizeValueSlider(
                         sliderKey = PersonalizeCardRefractionSlider,
-                        modifier = Modifier.rowEntrance(13 + weekContentRows),
+                        modifier = Modifier.rowEntrance(13 + weekContentRows + nativeMaterialRows),
                         value = state.config.courseCardRefractionStrength.coerceIn(0f, 1f),
                         valueRange = 0f..1f,
                         backdrop = backdrop,
@@ -7166,8 +7373,8 @@ fun PersonalizePanel(
                         .height(4.dp)
                         .personalizePreviewVisibility(previewSliderKey, previewProgress)
                 )
-                Row(
-                    modifier = Modifier.rowEntrance(14 + weekContentRows)
+                if (!nativeMaterialActive) Row(
+                    modifier = Modifier.rowEntrance(14 + weekContentRows + nativeMaterialRows)
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .personalizePreviewVisibility(previewSliderKey, previewProgress),
@@ -7200,9 +7407,9 @@ fun PersonalizePanel(
                             .personalizePreviewVisibility(previewSliderKey, previewProgress)
                     )
                 }
-                if (state.config.courseCardGlassEnabled && !glassLocked) {
+                if (!nativeMaterialActive && state.config.courseCardGlassEnabled && !glassLocked) {
                     Row(
-                        modifier = Modifier.rowEntrance(15 + weekContentRows)
+                        modifier = Modifier.rowEntrance(15 + weekContentRows + nativeMaterialRows)
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
                             .personalizePreviewVisibility(previewSliderKey, previewProgress),
@@ -7222,9 +7429,9 @@ fun PersonalizePanel(
                             backdrop = backdrop
                         )
                     }
-                } else {
+                } else if (!nativeMaterialActive) {
                     Row(
-                        modifier = Modifier.rowEntrance(15 + weekContentRows)
+                        modifier = Modifier.rowEntrance(15 + weekContentRows + nativeMaterialRows)
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
                             .personalizePreviewVisibility(previewSliderKey, previewProgress),
@@ -7247,7 +7454,7 @@ fun PersonalizePanel(
                     }
                 }
                 Row(
-                    modifier = Modifier.rowEntrance(16 + weekContentRows)
+                    modifier = Modifier.rowEntrance(16 + weekContentRows + nativeMaterialRows)
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .personalizePreviewVisibility(previewSliderKey, previewProgress),
@@ -7519,7 +7726,7 @@ open class SettingsDetailActivityHost : ComponentActivity() {
                                 )
                             }
                         )
-                        SettingsPage.LiquidGlass -> LiquidGlassSettingsScreen(
+                        SettingsPage.LiquidGlass -> VisualEffectsSettingsScreen(
                             state = state,
                             backdrop = backdrop,
                             onUpdateBlurScale = viewModel::saveHomeChromeBlurScale
@@ -8057,6 +8264,18 @@ fun LiquidControlSlider(
         }
     }
 
+    val nativeSlider = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeSliderRenderer.current
+    if (nativeSlider?.invoke(
+            com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeSliderRequest(
+                value = { localValue }, range = valueRange, onPreview = ::updatePreview,
+                onPreviewMode = { active ->
+                    previewModeActive = active
+                    onSliderTouchActiveChange(active)
+                }, onCommit = ::commit, modifier = modifier,
+                snapValue = safeSnapValue, enabled = enabled
+            )) == true) return
+
+    // Native renderers own marker geometry as well as the track and thumb.
     SliderWithSnapMarker(
         modifier = modifier,
         snapValue = safeSnapValue,
@@ -8127,7 +8346,7 @@ private fun SliderWithSnapMarker(
             (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
         Canvas(
             modifier = Modifier
-                .align(Alignment.TopStart)
+                .align(Alignment.CenterStart)
                 .fillMaxWidth()
                 .height(36.dp)
         ) {
@@ -8152,6 +8371,10 @@ fun LiquidControlToggle(
     modifier: Modifier = Modifier,
     compact: Boolean = false
 ) {
+    if (com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeSwitchRenderer.current?.invoke(
+            com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeSwitchRequest(
+                checked, onCheckedChange, modifier, enabled, compact
+            )) == true) return
     val alpha = if (enabled) 1f else 0.40f
     if (backdrop != null) {
         LiquidToggle(
@@ -8530,7 +8753,7 @@ private fun SettingsPageContent(
             exitCommitRequest = exitCommitRequest,
             onExitCommitFinished = onExitCommitFinished
         )
-        SettingsPage.LiquidGlass -> LiquidGlassSettingsScreen(
+        SettingsPage.LiquidGlass -> VisualEffectsSettingsScreen(
             state = state,
             backdrop = backdrop,
             onUpdateBlurScale = onUpdateHomeChromeBlurScale
@@ -8912,7 +9135,7 @@ private fun SettingsUpdateDialogHost(
         SettingsUpdateDialog.Checking -> LiquidAlertDialog(
             title = "正在检查更新",
             message = "正在读取 Gitee 上最新的 SleepDown-Schedule Release。",
-            actions = listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = onDismiss)),
+            actions = listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = onDismiss)),
             backdrop = backdrop,
             config = config,
             onDismissRequest = onDismiss
@@ -8924,7 +9147,7 @@ private fun SettingsUpdateDialogHost(
                 title = "发现新版本 ${release.name}",
                 message = "$notes\n\n当前将从 Gitee 下载 APK，安装前仍会由系统向你确认。",
                 actions = listOf(
-                    LiquidAlertAction("稍后", LiquidAlertActionStyle.Secondary, onClick = onDismiss),
+                    LiquidAlertAction("稍后", LiquidAlertActionStyle.Cancel, onClick = onDismiss),
                     LiquidAlertAction("下载并安装", LiquidAlertActionStyle.Primary) { onDownload(release) }
                 ),
                 backdrop = backdrop,
@@ -8980,7 +9203,7 @@ private fun SettingsUpdateDialogHost(
             title = "允许安装更新",
             message = "Android 需要你先允许 SleepDown 安装来自 Gitee 的更新。授权返回后会继续打开系统安装确认页面。",
             actions = listOf(
-                LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = onDismiss),
+                LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = onDismiss),
                 LiquidAlertAction("去授权", LiquidAlertActionStyle.Primary, onClick = onRequestInstallPermission)
             ),
             backdrop = backdrop,
@@ -9130,7 +9353,7 @@ fun ScheduleManagerScreen(
             title = "删除课表",
             message = "确定要删除「$name」吗？该课表下的所有课程都会被删除，且无法恢复。",
             actions = listOf(
-                LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary) { deleteTarget = null },
+                LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel) { deleteTarget = null },
                 LiquidAlertAction("确认删除", LiquidAlertActionStyle.Destructive) {
                     val targetId = id
                     deleteTarget = null
@@ -9153,6 +9376,8 @@ fun ScheduleNameDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    if (com.xiaomanjun.sleepdownschedule.coloros.ColorOsNameDialog(
+            title, initialName, appUsesDarkTheme(config), null, onDismiss, onConfirm)) return
     var name by remember { mutableStateOf(initialName) }
     val textColor = glassForegroundColor(config)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {

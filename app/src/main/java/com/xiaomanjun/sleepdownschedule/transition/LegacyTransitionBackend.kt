@@ -26,7 +26,7 @@ internal class LegacyTransitionBackend : TransitionBackend {
         return runCatching {
             launchActivity(request.intent)
             when (val profile = request.route.legacyProfile) {
-                is LegacyTransitionProfile.Anchored -> {
+                is LegacyTransitionProfile.Anchored, LegacyTransitionProfile.Page -> {
                     @Suppress("DEPRECATION")
                     request.activity.overridePendingTransition(0, 0)
                 }

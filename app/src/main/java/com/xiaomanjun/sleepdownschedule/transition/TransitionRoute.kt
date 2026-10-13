@@ -5,6 +5,7 @@ import com.xiaomanjun.sleepdownschedule.R
 /** Stable wire identifiers used in Intents and structured transition diagnostics. */
 enum class TransitionRouteId(val wireName: String) {
     HomeToCourseManagement("home_to_course_management"),
+    HomeMenuToCourseManagement("home_menu_to_course_management"),
     TabletHomeToCourseManagement("tablet_home_to_course_management"),
     TabletHomeToEduImport("tablet_home_to_edu_import"),
     CourseManagementToDetail("course_management_to_detail"),
@@ -51,6 +52,8 @@ sealed interface LegacyTransitionProfile {
     ) : LegacyTransitionProfile
 
     data object PlatformDefault : LegacyTransitionProfile
+    /** Project Compose detail-page motion with no source control to morph from. */
+    data object Page : LegacyTransitionProfile
     data object TaskReturn : LegacyTransitionProfile
 }
 
@@ -87,6 +90,11 @@ object TransitionRouteCatalog {
     private const val PackageName = "com.xiaomanjun.sleepdownschedule"
 
     private val routes = listOf(
+        TransitionRouteSpec(
+            TransitionRouteId.HomeMenuToCourseManagement,
+            "$PackageName.feature.experimental.colorosui.ColorOsCourseManagementActivity",
+            LegacyTransitionProfile.PlatformDefault
+        ),
         TransitionRouteSpec(
             id = TransitionRouteId.HomeToCourseManagement,
             destinationClassName = "$PackageName.CourseManagementActivity",

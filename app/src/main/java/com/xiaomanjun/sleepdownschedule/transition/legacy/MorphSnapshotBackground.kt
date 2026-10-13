@@ -45,6 +45,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -153,6 +154,7 @@ internal fun MorphSnapshotBackground(
     bitmap: Bitmap,
     backgroundScaleProvider: () -> Float,
     nativeRoundClip: Boolean = false,
+    dialog: com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshot? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -168,10 +170,7 @@ internal fun MorphSnapshotBackground(
             alphaProvider = { 1f },
             modifier = Modifier.fillMaxSize()
         )
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = null,
-            contentScale = ContentScale.FillBounds,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
@@ -222,7 +221,11 @@ internal fun MorphSnapshotBackground(
                         }
                     }
                 }
-        )
+        ) {
+            Image(bitmap = bitmap.asImageBitmap(), contentDescription = null,
+                contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
+            dialog?.let { NativeDialogSnapshotLayer(it, bitmap.width, bitmap.height) }
+        }
     }
 }
 
@@ -230,3 +233,39 @@ internal fun morphSnapshotDepthProgress(scale: Float): Float =
     (abs(scale.coerceIn(0.92f, 1.08f) - 1f) / 0.08f).coerceIn(0f, 1f)
 
 
+
+/** Reattach COUI's real material between the source page and the copied dialog text/buttons. */
+@Composable
+private fun NativeDialogSnapshotLayer(
+    snapshot: com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshot,
+    sourceWidth: Int, sourceHeight: Int
+) {
+    val density = LocalDensity.current
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val sx = constraints.maxWidth.toFloat() / sourceWidth.coerceAtLeast(1)
+        val sy = constraints.maxHeight.toFloat() / sourceHeight.coerceAtLeast(1)
+        fun positioned(rect: androidx.compose.ui.geometry.Rect): Modifier = Modifier
+            .nativeSnapshotPosition(rect.left * sx, rect.top * sy, rect.width * sx, rect.height * sy)
+        val surface = positioned(snapshot.materialBounds)
+        val shape = androidx.compose.foundation.shape.RoundedCornerShape(
+            with(density) { (snapshot.cornerRadiusPx * minOf(sx, sy)).toDp() })
+        com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current?.invoke(
+            com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+                modifier = surface, shape = shape, dark = snapshot.dark,
+                role = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.Dialog,
+                edgeEffects = false, followTouch = false
+            )
+        ) {}
+        Image(snapshot.foreground.asImageBitmap(), contentDescription = null,
+            contentScale = ContentScale.FillBounds, modifier = positioned(snapshot.windowBounds))
+    }
+}
+
+private fun Modifier.nativeSnapshotPosition(x: Float, y: Float, width: Float, height: Float): Modifier = this
+    .graphicsLayer { translationX = x; translationY = y }
+    .layout { measurable, _ ->
+        val w = width.toInt().coerceAtLeast(1)
+        val h = height.toInt().coerceAtLeast(1)
+        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(w, h))
+        layout(w, h) { placeable.place(0, 0) }
+    }

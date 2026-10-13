@@ -377,7 +377,7 @@ internal fun ScheduleAdjustmentsScreen(
             actions = listOf(
                 LiquidAlertAction("完成", LiquidAlertActionStyle.Primary) { onConfirm(entries) },
                 LiquidAlertAction("放弃修改", LiquidAlertActionStyle.Destructive) { onDismiss() },
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) { showExitConfirm = false }
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) { showExitConfirm = false }
             ),
             backdrop = backdrop, config = state.config, onDismissRequest = { showExitConfirm = false }
         )
@@ -392,7 +392,7 @@ internal fun ScheduleAdjustmentsScreen(
                         if (draft?.date == entry.date) dropDraft()
                         deleting = null
                     },
-                    LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary) { deleting = null }
+                    LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel) { deleting = null }
                 ),
                 backdrop = backdrop, config = state.config, onDismissRequest = { deleting = null }
             )
