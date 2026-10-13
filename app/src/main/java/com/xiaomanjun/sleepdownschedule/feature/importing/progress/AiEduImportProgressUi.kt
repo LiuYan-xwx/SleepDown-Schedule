@@ -1,36 +1,15 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing.progress
 
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.app.ui.*
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
-import com.xiaomanjun.sleepdownschedule.core.ui.text.*
-import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import com.xiaomanjun.sleepdownschedule.transition.legacy.*
-
-import com.xiaomanjun.sleepdownschedule.feature.home.day.*
-import com.xiaomanjun.sleepdownschedule.feature.home.overlay.*
-
-import com.xiaomanjun.sleepdownschedule.feature.importing.*
-import com.xiaomanjun.sleepdownschedule.feature.importing.history.*
-
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Build
 import android.os.Bundle
 import android.util.Base64
-import android.view.RoundedCorner
 import android.view.WindowManager
-import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
@@ -38,9 +17,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,32 +28,27 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import com.kyant.shapes.RoundedRectangle
-import com.kyant.shapes.Capsule
-import com.kyant.shapes.UnevenRoundedRectangle
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,51 +62,69 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionOnScreen
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
 import com.kyant.backdrop.catalog.components.LiquidPanel
+import com.kyant.shapes.Capsule
+import com.kyant.shapes.RoundedRectangle
+import com.kyant.shapes.UnevenRoundedRectangle
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.R
+import com.xiaomanjun.sleepdownschedule.app.ui.*
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.TopGlassIconButton
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
+import com.xiaomanjun.sleepdownschedule.core.ui.material.controlAccentColor
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.DetailActivityScaffold
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.detailContentTopPadding
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsPageBackground
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsVisualConfig
+import com.xiaomanjun.sleepdownschedule.core.ui.text.*
+import com.xiaomanjun.sleepdownschedule.feature.agent.*
+import com.xiaomanjun.sleepdownschedule.feature.home.day.*
+import com.xiaomanjun.sleepdownschedule.feature.home.overlay.*
+import com.xiaomanjun.sleepdownschedule.feature.importing.*
+import com.xiaomanjun.sleepdownschedule.feature.importing.history.*
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
 import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
+import com.xiaomanjun.sleepdownschedule.glass.ui.*
+import com.xiaomanjun.sleepdownschedule.glass.ui.glassForegroundColor
 import com.xiaomanjun.sleepdownschedule.transition.ActivityTransitionCoordinator
 import com.xiaomanjun.sleepdownschedule.transition.StaticTransitionAnchorProvider
 import com.xiaomanjun.sleepdownschedule.transition.TransitionAnchorFrame
@@ -140,14 +132,14 @@ import com.xiaomanjun.sleepdownschedule.transition.TransitionLaunchResult
 import com.xiaomanjun.sleepdownschedule.transition.TransitionPayload
 import com.xiaomanjun.sleepdownschedule.transition.TransitionRouteId
 import com.xiaomanjun.sleepdownschedule.transition.attachOpeningSourceSnapshotHandoff
+import com.xiaomanjun.sleepdownschedule.transition.legacy.*
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.roundToInt
-import kotlin.math.abs
-import top.yukonga.miuix.kmp.basic.BasicComponent as MiuixBasicComponent
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 
 open class AiEduImportProgressActivityHost : ComponentActivity() {
@@ -864,7 +856,7 @@ private fun AiEduCaptureConfirmation(
                 },
                 LiquidAlertAction(
                     progress.cancelActionLabel.ifBlank { "返回重抓" },
-                    LiquidAlertActionStyle.Secondary,
+                    LiquidAlertActionStyle.Cancel,
                     onClick = AiEduImportProgressSession::cancel
                 )
             )
@@ -895,7 +887,7 @@ private fun AiEduCaptureConfirmation(
                     },
                 LiquidAlertAction(
                     progress.cancelActionLabel.ifBlank { "返回重抓" },
-                    LiquidAlertActionStyle.Secondary,
+                    LiquidAlertActionStyle.Cancel,
                     onClick = AiEduImportProgressSession::cancel
                 )
             )
@@ -1433,7 +1425,7 @@ private fun AiEduAttachmentMorphOverlay(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(request.attachment.title, modifier = Modifier.weight(1f), color = textColor, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("完成", modifier = Modifier.clickable(onClick = ::dismiss).padding(12.dp), color = Color(0xFF0A84FF), fontWeight = FontWeight.SemiBold)
+                    Text("完成", modifier = Modifier.clickable(onClick = ::dismiss).padding(12.dp), color = controlAccentColor(Color(0xFF0A84FF)), fontWeight = FontWeight.SemiBold)
                 }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -1618,8 +1610,8 @@ private fun AiEduConversationComposer(
                         backdrop = backdrop,
                         modifier = Modifier.size(40.dp),
                         height = 40.dp,
-                        surfaceColor = Color(0xFF0A84FF).copy(alpha = 0.88f),
-                        tint = Color(0xFF0A84FF),
+                        surfaceColor = controlAccentColor(Color(0xFF0A84FF)).copy(alpha = 0.88f),
+                        tint = controlAccentColor(Color(0xFF0A84FF)),
                         contentPadding = PaddingValues(0.dp),
                         blurRadius = 4.dp,
                         lensHeight = 14.dp,
@@ -1632,7 +1624,7 @@ private fun AiEduConversationComposer(
                     }
                 } else {
                     Box(
-                        Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF0A84FF)).clickable {
+                        Modifier.size(40.dp).clip(CircleShape).background(controlAccentColor(Color(0xFF0A84FF))).clickable {
                             if (sending && canInterrupt && value.isBlank()) onStop() else onSend()
                         },
                         contentAlignment = Alignment.Center

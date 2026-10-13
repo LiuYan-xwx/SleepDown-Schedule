@@ -1,26 +1,26 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing
 
-import com.xiaomanjun.sleepdownschedule.core.remoteconfig.*
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.feature.backup.*
 import android.os.SystemClock
 import android.util.Log
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.intOrNull
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.core.remoteconfig.*
+import com.xiaomanjun.sleepdownschedule.feature.backup.*
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 
 private fun request(url: String, apiKey: String, method: String, body: ByteArray, contentType: String): String {
@@ -357,8 +357,24 @@ private fun postResponsesStreaming(
             throw AiServiceResponseException(formatAiRequestError(status, text, providerId, connection.getHeaderField("x-request-id")),
                 if (authType == AiAuthType.ChatGptOAuth) "" else text, httpStatus = status)
         }
-        if (!connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
-            check(authType != AiAuthType.ChatGptOAuth) { "ChatGPT 未返回要求的事件流，请重试。" }
+        if (authType == AiAuthType.ChatGptOAuth) {
+            val activityAccumulator = ResponsesSseAccumulator(requireCompleted = true)
+            val reasoningPublisher = AiReasoningStreamPublisher(requestContext.onReasoningUpdate)
+            var firstEvent = true
+            val response = connection.readChatGptResponse(
+                checkActive = { requestContext.interaction?.checkActive() }
+            ) { payload ->
+                trace.onEvent()
+                if (firstEvent) { firstEvent = false; trace.mark(AiImportHttpPhase.FIRST_EVENT) }
+                activityAccumulator.consume(payload)
+                activityAccumulator.activities.forEach { requestContext.interaction?.publishActivity(it) }
+                reasoningPublisher.publish(activityAccumulator.displayReasoning)
+                requestContext.interaction?.publishStream(activityAccumulator.reasoning.isNotEmpty(), activityAccumulator.courseOutput)
+            }
+            finishAiImportStream(response, publishFinal = {
+                publishNonStreamingImportActivity(response, AiEndpointStyle.RESPONSES, requestContext)
+            }, onEnd = { trace.mark(AiImportHttpPhase.STREAM_END) })
+        } else if (!connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
             trace.mark(AiImportHttpPhase.BODY_READ_START)
             connection.inputStream.bufferedReader().use { it.readAiBoundedText() }
                 .also {

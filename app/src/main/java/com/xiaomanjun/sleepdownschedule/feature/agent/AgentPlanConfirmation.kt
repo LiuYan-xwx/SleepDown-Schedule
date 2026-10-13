@@ -12,6 +12,15 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanPreview
+import com.xiaomanjun.sleepdownschedule.domain.agent.agentPeriodFragment
+import com.xiaomanjun.sleepdownschedule.domain.agent.scopedEditedCourse
+import com.xiaomanjun.sleepdownschedule.domain.agent.sourcePeriodSet
+import com.xiaomanjun.sleepdownschedule.domain.agent.sourceWeekSet
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 
 internal enum class AgentChangeKind(val label: String) {
     MOVE("移动"), DELETE("删除"), RENAME("重命名"), ADD("新增"), EDIT("修改"), OPEN("打开"), SWITCH("切换")

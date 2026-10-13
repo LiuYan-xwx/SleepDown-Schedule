@@ -1,11 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.transition.legacy
 
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.feature.importing.progress.deviceScreenCornerRadiusPx
-import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import com.xiaomanjun.sleepdownschedule.feature.home.*
-import com.xiaomanjun.sleepdownschedule.feature.home.overlay.*
-
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
@@ -23,18 +17,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.CompositionLocalProvider
-import com.xiaomanjun.sleepdownschedule.glass.DeferredGlassRoundedRectangle
-import com.xiaomanjun.sleepdownschedule.glass.LocalGlassCoordinatesFrozen
-import com.xiaomanjun.sleepdownschedule.glass.rememberGlassContentLens
-import androidx.compose.ui.unit.constrainWidth
-import androidx.compose.ui.unit.constrainHeight
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +30,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp as lerpRect
@@ -52,40 +40,50 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
-import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
-import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
 import com.kyant.backdrop.catalog.components.LiquidPanel
 import com.kyant.shapes.RoundedRectangle
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.feature.home.*
+import com.xiaomanjun.sleepdownschedule.feature.home.overlay.*
+import com.xiaomanjun.sleepdownschedule.feature.importing.progress.deviceScreenCornerRadiusPx
+import com.xiaomanjun.sleepdownschedule.glass.DeferredGlassRoundedRectangle
+import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
+import com.xiaomanjun.sleepdownschedule.glass.LocalGlassCoordinatesFrozen
+import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
+import com.xiaomanjun.sleepdownschedule.glass.rememberGlassContentLens
+import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
+import com.xiaomanjun.sleepdownschedule.glass.ui.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.math.sin
-import androidx.compose.ui.graphics.rememberGraphicsLayer
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 private const val AnchoredMorphSnapshotTokenExtra = "anchored_morph_snapshot_token"
 private const val CourseManagementDetailOpenDurationMillis = 380
@@ -211,9 +209,11 @@ internal fun AnchoredDetailActivityMorph(
     onSourceHandoff: () -> Unit = {},
     sourceContent: @Composable BoxScope.() -> Unit,
     backgroundSnapshot: Bitmap? = null,
+    backgroundDialog: com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeDialogSnapshot? = null,
     sourceSnapshot: Bitmap? = null,
     collapseSnapshot: Bitmap? = null,
     motionStyle: AnchoredDetailMotionStyle = AnchoredDetailMotionStyle.Liquid,
+    animateWithoutAnchor: Boolean = false,
     destinationFirstOpening: Boolean = false,
     suppressOpening: Boolean = false,
     openingMode: AnchoredDetailOpeningMode = if (suppressOpening) {
@@ -231,7 +231,7 @@ internal fun AnchoredDetailActivityMorph(
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
     val progress = remember(sourceBounds) {
         Animatable(
-            if (sourceBounds == null || openingMode == AnchoredDetailOpeningMode.ShowDestination) {
+            if ((!animateWithoutAnchor && sourceBounds == null) || openingMode == AnchoredDetailOpeningMode.ShowDestination) {
                 1f
             } else {
                 0f
@@ -242,7 +242,7 @@ internal fun AnchoredDetailActivityMorph(
     var closing by remember(sourceBounds) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val usesCourseEditorMotion = motionStyle == AnchoredDetailMotionStyle.CourseManagementDetail
-    val usesPageMotion = motionStyle == AnchoredDetailMotionStyle.DetailSettings ||
+    val usesPageMotion = animateWithoutAnchor || motionStyle == AnchoredDetailMotionStyle.DetailSettings ||
         motionStyle == AnchoredDetailMotionStyle.Parabolic ||
         usesCourseEditorMotion
     val usesHomeMenuDestinationMotion = motionStyle == AnchoredDetailMotionStyle.HomeMenuDestination
@@ -257,7 +257,7 @@ internal fun AnchoredDetailActivityMorph(
     fun close() {
         if (closing) return
         if (onCloseRequested?.invoke() == true) return
-        if (sourceBounds == null) {
+        if (sourceBounds == null && !animateWithoutAnchor) {
             onFinished()
             return
         }
@@ -298,13 +298,13 @@ internal fun AnchoredDetailActivityMorph(
     }
 
     BackHandler(enabled = handleSystemBack, onBack = ::close)
-    LaunchedEffect(sourceBounds, rootSize, motionStyle, openingMode, openingReady) {
+    LaunchedEffect(sourceBounds, rootSize, motionStyle, openingMode, openingReady, animateWithoutAnchor) {
         if (openingMode == AnchoredDetailOpeningMode.ShowDestination) {
             if (progress.value < 1f) progress.snapTo(1f)
         } else if (
             openingReady &&
             openingMode == AnchoredDetailOpeningMode.AnimateLegacy &&
-            sourceBounds != null && rootSize.width > 0 && rootSize.height > 0 &&
+            (sourceBounds != null || animateWithoutAnchor) && rootSize.width > 0 && rootSize.height > 0 &&
             progress.value < 1f
         ) {
             // Precompose the destination before motion starts. This matches the detailed-settings
@@ -365,6 +365,7 @@ internal fun AnchoredDetailActivityMorph(
                     bitmap = bitmap,
                     backgroundScaleProvider = { backgroundScale.value },
                     nativeRoundClip = nativeRoundClip,
+                    dialog = backgroundDialog,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -406,6 +407,7 @@ internal fun AnchoredDetailActivityMorph(
                 parabolic = motionStyle == AnchoredDetailMotionStyle.Parabolic || usesCourseEditorMotion,
                 openingDownward = false,
                 homeCourseParabola = usesCourseEditorMotion,
+                animateWithoutAnchor = animateWithoutAnchor,
                 onClose = ::close,
                 sourceContent = sourceContent,
                 content = content
@@ -1131,6 +1133,7 @@ private fun BoxScope.AnchoredSettingsStyleMorph(
     parabolic: Boolean,
     openingDownward: Boolean,
     homeCourseParabola: Boolean = false,
+    animateWithoutAnchor: Boolean = false,
     onClose: () -> Unit,
     sourceContent: @Composable BoxScope.() -> Unit,
     content: @Composable (requestClose: () -> Unit) -> Unit
@@ -1139,7 +1142,11 @@ private fun BoxScope.AnchoredSettingsStyleMorph(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val screenWidth = with(density) { maxWidth.toPx() }
         val screenHeight = with(density) { maxHeight.toPx() }
-        val source = sourceBounds ?: Rect(0f, 0f, screenWidth, screenHeight)
+        // A closed native menu has no remaining source surface. Reuse the detail-page renderer
+        // from a centered full-page scale, without manufacturing a menu snapshot or anchor.
+        val source = sourceBounds ?: if (animateWithoutAnchor) {
+            Rect(screenWidth * 0.04f, screenHeight * 0.04f, screenWidth * 0.96f, screenHeight * 0.96f)
+        } else Rect(0f, 0f, screenWidth, screenHeight)
         val initialScale = (source.width / screenWidth).coerceAtLeast(0.001f)
         val sourceCenterX = source.left + source.width / 2f
         val targetCornerRadiusPx = deviceScreenCornerRadiusPx()
@@ -1260,7 +1267,7 @@ private fun BoxScope.AnchoredSettingsStyleMorph(
                     }
                 }
         ) {
-            if (sourceVisible) {
+            if (sourceVisible && !animateWithoutAnchor) {
                 if (sourceSnapshot != null) {
                     Image(
                         bitmap = sourceSnapshot.asImageBitmap(),

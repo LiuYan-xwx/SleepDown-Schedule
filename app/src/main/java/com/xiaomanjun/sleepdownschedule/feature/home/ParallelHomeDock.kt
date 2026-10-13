@@ -31,13 +31,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.utils.InteractiveHighlight
-import com.xiaomanjun.sleepdownschedule.app.ui.*
 import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
+import com.xiaomanjun.sleepdownschedule.app.ui.*
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeChromeBlur
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.homeChromeGlassSurfaceAlpha
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownFloatingAddButton
-import com.xiaomanjun.sleepdownschedule.feature.agent.excludeHomeAssistantPull
-import com.xiaomanjun.sleepdownschedule.glass.withRecordingDensity
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.dockImeCompensationPx
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.excludeParentPullGesture
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeButtonAccent
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialControls
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
 import com.xiaomanjun.sleepdownschedule.glass.ui.LocalAdaptiveGlass
 import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
+import com.xiaomanjun.sleepdownschedule.glass.withRecordingDensity
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -46,16 +52,28 @@ internal val HomeImportButtonColor = Color(0xFF007AFF)
 internal fun homeImportButtonGlassColor(light: Boolean): Color =
     HomeImportButtonColor.copy(alpha = homeChromeGlassSurfaceAlpha(light))
 
+@Composable
+internal fun homeDockImportButtonGlassColor(light: Boolean): Color {
+    val nativeStyle = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle.current != null
+    val accent = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeButtonAccent.current
+        ?.let { Color(it) }
+        ?: HomeImportButtonColor
+    // Native FAB's custom theme layer is opaque. Match it before blending toward the menu tint.
+    return accent.copy(alpha = if (nativeStyle)
+        1f else homeChromeGlassSurfaceAlpha(light))
+}
+
 /** The return endpoint is the resting button, without the captured press deformation. */
 @Composable
 internal fun HomeImportButtonReturnVisual(
     backdrop: Backdrop?, config: ScheduleConfigEntity, modifier: Modifier = Modifier
 ) {
+    if (LocalHomeMaterialControls.current.FloatingButtonVisual(dark = !LocalAdaptiveGlass.current.lightGlass, modifier = modifier)) return
     SleepDownFloatingAddButton(
         backdrop = backdrop,
         contentDescription = "添加与导入",
         onClick = {},
-        surfaceColor = homeImportButtonGlassColor(LocalAdaptiveGlass.current.lightGlass),
+        surfaceColor = homeDockImportButtonGlassColor(LocalAdaptiveGlass.current.lightGlass),
         blurRadius = homeChromeBlur(1.3.dp, config),
         enabled = false,
         modifier = modifier
@@ -74,11 +92,15 @@ internal fun ParallelHomeDock(
     val homeSelected = selectedIndex < 2
     val adaptiveGlass = LocalAdaptiveGlass.current
     val light = if (homeSelected) adaptiveGlass.lightGlass else !appUsesDarkTheme(config)
+    if (LocalHomeMaterialControls.current.ParallelDock(
+            selectedIndex = selectedIndex, dark = !light, buttonHidden = buttonHidden,
+            modifier = modifier, onSelect = onSelect, onOpenMenu = onOpenMenu
+        )) return
     val ink by animateColorAsState(
         if (homeSelected) adaptiveGlass.contentColor else if (light) Color.Black else Color.White,
         tween(220), label = "ParallelDockInk")
     val plusSurface by animateColorAsState(
-        homeImportButtonGlassColor(light), tween(220), label = "ParallelImportSurface")
+        homeDockImportButtonGlassColor(light), tween(220), label = "ParallelImportSurface")
     val split = remember { Animatable(if (homeSelected) 1f else 0f) }
     val splitReady by remember { derivedStateOf { !split.isRunning && split.value >= 0.999f } }
     LaunchedEffect(homeSelected) {
@@ -118,7 +140,9 @@ internal fun ParallelHomeDock(
                 clipPath(mask, ClipOp.Difference) { this@drawWithContent.drawContent() }
             }) {
                 SleepDownFloatingAddButton(onClick = {
-                    if (buttonBounds.width > 1f && buttonBounds.height > 1f) onOpenMenu(buttonBounds, returnButtonLayer)
+                    if (buttonBounds.width > 1f && buttonBounds.height > 1f) {
+                        onOpenMenu(buttonBounds, returnButtonLayer)
+                    }
                 }, backdrop = backdrop, contentDescription = "添加与导入", enabled = buttonInteractive,
                     modifier = Modifier.offset {
                         val s = split.value.coerceIn(0f, 1f)
@@ -142,7 +166,7 @@ internal fun ParallelHomeDock(
                             if (!buttonHidden) drawLayer(returnButtonLayer)
                         }
                         .then(if (buttonInteractive) plusInteraction.gestureModifier else Modifier)
-                        .excludeHomeAssistantPull()
+                        .excludeParentPullGesture()
                         .then(if (buttonInteractive) Modifier.semantics { testTag = "parallel_import_button" }
                             else Modifier.clearAndSetSemantics {}),
                     surfaceColor = plusSurface, sharedInteractiveHighlight = plusInteraction,
@@ -152,7 +176,7 @@ internal fun ParallelHomeDock(
                 HomeDockTabs(selectedIndex, true, config, backdrop, light,
                     modifier = Modifier.offset {
                         IntOffset((((groupWidth - dockWidth) / 2).toPx() * (1f - split.value)).roundToInt(), dockTop.roundToPx())
-                    }.width(dockWidth).excludeHomeAssistantPull().semantics { testTag = "parallel_home_dock" },
+                    }.width(dockWidth).excludeParentPullGesture().semantics { testTag = "parallel_home_dock" },
                     onSelect = onSelect)
             }
         }

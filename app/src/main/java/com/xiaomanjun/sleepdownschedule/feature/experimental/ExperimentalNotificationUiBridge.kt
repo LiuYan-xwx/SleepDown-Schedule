@@ -15,12 +15,12 @@ import com.xiaomanjun.sleepdownschedule.BuildConfig
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertAction
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertActionStyle
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LiquidAlertDialog
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsActionButton
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsChoiceRow
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseDiagnostics
 import com.xiaomanjun.sleepdownschedule.feature.coloros.ColorOSCourseExperiment
 import com.xiaomanjun.sleepdownschedule.feature.reminder.NotificationScheduler
 import com.xiaomanjun.sleepdownschedule.feature.settings.ColorOSCourseSettingsSection
-import com.xiaomanjun.sleepdownschedule.feature.settings.SettingsActionButton
-import com.xiaomanjun.sleepdownschedule.feature.settings.SettingsChoiceRow
 import com.xiaomanjun.sleepdownschedule.model.AppState
 import com.xiaomanjun.sleepdownschedule.model.LiveUpdateChipTextMode
 import com.xiaomanjun.sleepdownschedule.model.NotificationMode

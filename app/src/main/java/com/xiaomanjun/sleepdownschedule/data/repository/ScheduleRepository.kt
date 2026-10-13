@@ -1,26 +1,36 @@
 package com.xiaomanjun.sleepdownschedule.data.repository
 
+import androidx.room.withTransaction
 import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.previewPeriodCourseMapping
-import com.xiaomanjun.sleepdownschedule.domain.schedule.hasSameContent
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanExecutionResult
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentPlanRejectedException
+import com.xiaomanjun.sleepdownschedule.domain.agent.agentActionsHaveOverlappingCourseScopes
+import com.xiaomanjun.sleepdownschedule.domain.agent.agentCourseFragments
+import com.xiaomanjun.sleepdownschedule.domain.agent.previewAgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.agent.scopedEditedCourse
+import com.xiaomanjun.sleepdownschedule.domain.agent.sourcePeriodSet
+import com.xiaomanjun.sleepdownschedule.domain.agent.sourceWeekSet
+import com.xiaomanjun.sleepdownschedule.domain.agent.verifyAgentPlan
+import com.xiaomanjun.sleepdownschedule.domain.course.conflictsWith
 import com.xiaomanjun.sleepdownschedule.domain.schedule.CourseAlignmentImpact
+import com.xiaomanjun.sleepdownschedule.domain.schedule.arrangementForWrite
 import com.xiaomanjun.sleepdownschedule.domain.schedule.captureOriginalPeriodTimes
 import com.xiaomanjun.sleepdownschedule.domain.schedule.encodeCoursePeriodTimes
-import com.xiaomanjun.sleepdownschedule.domain.schedule.parseCoursePeriodTimes
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-import com.xiaomanjun.sleepdownschedule.domain.schedule.arrangementForWrite
-import com.xiaomanjun.sleepdownschedule.domain.schedule.projectCourseArrangements
-import com.xiaomanjun.sleepdownschedule.domain.schedule.previewCourseAlignment
-import com.xiaomanjun.sleepdownschedule.domain.schedule.withEffectiveCourseArrangements
 import com.xiaomanjun.sleepdownschedule.domain.schedule.hasNetPeriodTopologyChange
+import com.xiaomanjun.sleepdownschedule.domain.schedule.hasSameContent
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
+import com.xiaomanjun.sleepdownschedule.domain.schedule.parseCoursePeriodTimes
+import com.xiaomanjun.sleepdownschedule.domain.schedule.previewCourseAlignment
+import com.xiaomanjun.sleepdownschedule.domain.schedule.previewPeriodCourseMapping
+import com.xiaomanjun.sleepdownschedule.domain.schedule.projectCourseArrangements
 import com.xiaomanjun.sleepdownschedule.domain.schedule.schemeConfig
+import com.xiaomanjun.sleepdownschedule.domain.schedule.withEffectiveCourseArrangements
 import com.xiaomanjun.sleepdownschedule.model.PeriodAlignmentMode
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.model.withImportedCourseCardDefaults
-import com.xiaomanjun.sleepdownschedule.domain.course.conflictsWith
-
-import androidx.room.withTransaction
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -849,10 +859,11 @@ class ScheduleRepository(private val database: AppDatabase) {
     private suspend fun saveGlobalSettingsWith(
         merge: (ScheduleConfigEntity) -> ScheduleConfigEntity
     ) {
-        val activeId = activeScheduleId()
         database.withTransaction {
             val existing = configDao.getAllConfigs()
-            val targetIds = (profileDao.getProfiles().map { it.id } + existing.map { it.id } + activeId).distinct()
+            // Resolve live owners in this transaction. A pre-transaction active ID (or the
+            // startup fallback 1) can already be gone after deleting/restoring a timetable.
+            val targetIds = profileDao.getProfiles().map { it.id }
             targetIds.forEach { id ->
                 val base = existing.firstOrNull { it.id == id } ?: defaultConfig(id)
                 configDao.upsertConfig(merge(base).copy(id = id))
@@ -974,6 +985,7 @@ class ScheduleRepository(private val database: AppDatabase) {
      * while the scheme tables still retained the original timetable.
      */
     private suspend fun ensureScheduleData(scheduleId: Int) {
+        require(profileDao.getProfiles().any { it.id == scheduleId }) { "课表已不存在，请返回当前课表后重试" }
         val config = configDao.getConfig(scheduleId)
         val scheme = config?.activePeriodSchemeId?.let { periodSchemeDao.getScheme(it) }
         if (scheme != null) {

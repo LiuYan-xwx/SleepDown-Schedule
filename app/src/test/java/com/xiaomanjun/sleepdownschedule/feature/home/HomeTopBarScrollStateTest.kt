@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import com.xiaomanjun.sleepdownschedule.app.ui.HomeMode
+import com.xiaomanjun.sleepdownschedule.model.HomeMode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

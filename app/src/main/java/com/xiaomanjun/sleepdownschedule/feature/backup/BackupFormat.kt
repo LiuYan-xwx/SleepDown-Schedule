@@ -1,9 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.backup
 
 import com.xiaomanjun.sleepdownschedule.*
-
-import kotlinx.serialization.Serializable
+import com.xiaomanjun.sleepdownschedule.model.AppIconPreferencesSnapshot
 import java.util.UUID
+import kotlinx.serialization.Serializable
 
 /**
  * Stable, Room-independent identifiers used inside a .sleepdown archive.
@@ -357,21 +357,13 @@ data class BackupWidgetAppearance(
 data class BackupPreferences(
     val preferencesVersion: Int,
     val materialLevel: String? = null,
-    val appIcon: BackupAppIconPreferences? = null,
+    val appIcon: AppIconPreferencesSnapshot? = null,
     val dayAgent: BackupDayAgentPreferences? = null,
     val aiImport: BackupAiImportPreferences? = null,
     val aiImportHistoryRetentionDays: Int = BackupFormatV1.DEFAULT_AI_IMPORT_HISTORY_RETENTION_DAYS,
     val aiImportHistory: List<BackupAiImportHistoryEntry> = emptyList(),
     val savedPeriodSchemes: List<com.xiaomanjun.sleepdownschedule.domain.schedule.SavedPeriodScheme>? = null,
     val courseQuietSettings: com.xiaomanjun.sleepdownschedule.domain.schedule.CourseQuietSettings? = null
-)
-
-@Serializable
-data class BackupAppIconPreferences(
-    val mode: String,
-    val style: String = "KANBAN",
-    val followsSystemDarkMode: Boolean,
-    val darkTheme: Boolean
 )
 
 @Serializable

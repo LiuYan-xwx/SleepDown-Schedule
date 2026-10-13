@@ -10,6 +10,7 @@ def android_change(path: str) -> bool:
     return path.startswith(("app/", "benchmark/", "coloros-wakeup-proxy/", "third-party/", "patches/", "gradle/")) or path in {
         "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradlew", "gradlew.bat",
         ".github/workflows/pr-checks.yml", ".github/scripts/pr_scope.py",
+        "scripts/check_architecture.py",
     }
 
 

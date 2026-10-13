@@ -96,7 +96,7 @@ internal fun AiImportCheckpointPanel(
             messageMaxHeight = 440.dp,
             onDismissRequest = { editing = null },
             actions = listOf(
-                LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = { editing = null }),
+                LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = { editing = null }),
                 LiquidAlertAction("校验并保存阶段", LiquidAlertActionStyle.Primary, dismissOnClick = false, onClick = {
                     onSaveJson(checkpoint.id, json).fold(
                         onSuccess = { editing = null },

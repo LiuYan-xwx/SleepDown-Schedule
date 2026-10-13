@@ -55,6 +55,10 @@ class BackupRestoreServiceConcurrencyTest {
         context = object : ContextWrapper(RuntimeEnvironment.getApplication()) {
             override fun getApplicationContext(): Context = this
             override fun getFilesDir(): File = filesRoot
+            // Robolectric's method-name directories can exceed SQLite's Windows path limit.
+            override fun getDatabasePath(name: String): File = File(filesRoot, name)
+            override fun deleteDatabase(name: String): Boolean =
+                android.database.sqlite.SQLiteDatabase.deleteDatabase(getDatabasePath(name))
         }
         database = createAppDatabase(context, databaseName)
         archive = wallpaperArchive()

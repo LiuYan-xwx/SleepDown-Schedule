@@ -24,6 +24,8 @@ jobs:
           persist-credentials: false
       - id: scope
         run: python3 .github/scripts/pr_scope.py
+      - name: Check source dependency boundaries
+        run: python3 scripts/check_architecture.py
 
   android:
     name: Android compile
@@ -45,12 +47,6 @@ jobs:
         shell: bash
         run: |
           git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-0.9.3-sleepdown.patch"
-          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-cascading-popup-surface.patch"
-          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-scaffold-underlay.patch"
-          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-compact-dropdown.patch"
-          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-popup-slide-feedback.patch"
-          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-popup-hover-layout.patch"
-          git -C .ci/miuix apply "$GITHUB_WORKSPACE/patches/miuix-cascading-anchor-morph.patch"
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -66,6 +62,13 @@ jobs:
       - name: Verify shared schemes, backups and reminder scheduling
         run: >-
           bash ./gradlew testGithubDebugUnitTest
+          --tests 'com.xiaomanjun.sleepdownschedule.core.web.*Test'
+          --tests 'com.xiaomanjun.sleepdownschedule.core.identity.AppIdentityTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.core.ui.designsystem.ControlMaterialProviderTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.domain.agent.AgentExecutionTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.platform.coloros.VisualEffectModeTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.home.HomeAdaptiveMetricsTest'
+          --tests 'com.xiaomanjun.sleepdownschedule.feature.home.overlay.HomeAnchoredMorphGeometryTest'
           --tests 'com.xiaomanjun.sleepdownschedule.domain.schedule.PeriodSchemesTest'
           --tests 'com.xiaomanjun.sleepdownschedule.domain.schedule.ScheduleAdjustmentsTest'
           --tests 'com.xiaomanjun.sleepdownschedule.feature.reminder.NotificationAdjustmentSchedulingTest'

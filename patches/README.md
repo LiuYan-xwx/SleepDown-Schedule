@@ -2,25 +2,15 @@
 
 ## Miuix
 
-上游：[compose-miuix-ui/miuix](https://github.com/compose-miuix-ui/miuix)，标签 `v0.9.3`（`c36fab7`），Apache-2.0。前三份补丁均以该标签为基线，文件范围互不重叠；其余补丁按编号依次应用：
+上游：[compose-miuix-ui/miuix](https://github.com/compose-miuix-ui/miuix)，标签 `v0.9.3`（`c36fab7`），Apache-2.0。
 
-1. `miuix-0.9.3-sleepdown.patch`：BottomSheet、Dialog、Dropdown、ListPopup、TopAppBar 及 Popup host 的表面修饰、内容裁切、居中和关闭生命周期接口。
-2. `miuix-cascading-popup-surface.patch`：级联菜单的主/次表面、真实锚点及内容交接。
-3. `miuix-scaffold-underlay.patch`：新增 `Scaffold.underlayModifier`，把页面、TopBar 等放入底层布局，Popup/Dialog host 后绘制为同级节点，避免 Backdrop 自采样。
-4. `miuix-compact-dropdown.patch`：为列表菜单增加可选的条目文字样式、垂直内距和最小高度，默认值保留原排版。个性化面板借此将文字排布入口与菜单条目统一为其他选项的字号、字重和紧凑高度。
-5. `miuix-popup-slide-feedback.patch`：可选按住滑动选择、跨行触觉反馈、长菜单边缘滚动；允许取消背景压暗和触发行按压反馈，增加外层交互 Modifier。SleepDown 接入 Kyant 跟手高光、形变和松手回弹；普通下拉可启用独立宽高/锚点迁移的 Morph 动画，默认仍兼容原 Miuix 动画。Morph 从当前值与箭头展开，在固定采样画布中保留 14dp 回弹余量；材质、原尺寸触发内容和菜单文字分层显隐，瞬态模糊在绘制阶段缓存，支持预测性返回。触发行的按压状态与原内容交接分别控制，Morph 不再启动旧的逐帧锚点透明度观察。级联主/次菜单各自传播样式并沿用其父子锚点交接。
+`miuix-0.9.3-sleepdown.patch` 是唯一完整补丁，直接应用到干净的官方标签。它覆盖弹层生命周期、页面与弹层采样分离、Popup 锚点动画与滑动选择、级联菜单、可选原生材质/条目插槽、内联 BottomSheet 与同级材质节点。未使用可选接口时保留原有默认行为。
 
-6. `miuix-popup-hover-layout.patch`：主／次菜单共用一条手势，按住父项 350ms 展开后可继续滑入子项；停留松手不误触子项，返回标题也可滑动悬停。根据完整内容测量高度，安全区放不下时才滚动，滚动列表不接管滑动选择。主次面板宽度一致、文字为箭头预留空间、二级标题使用统一紧凑样式并移除分隔条。二级实测布局就绪后才启动展开弹簧（阻尼 0.82、响应 0.34s），标题起点按真实 8/0dp 内距对齐，沿圆角轮廓展开。一级在二级整个存续期冻结点击、滚动、滑选和无障碍操作，移除跟手观察但保留视觉平滑归位；选中框随行高采用胶囊轮廓。依次应用前五份后再应用本补丁。
+旧版本的增量补丁已合并，不要在已经打过旧补丁的目录重复应用。2026-10-13 验证发现旧链的第五份补丁依赖未记录的中间版本，因此从现有实际使用的 20 个 UI/preference 源码文件重新导出相对官方标签的完整差异。仅包含运行时源码，不含本地 IDE、CI、构建产物或无关实验。
 
-7. `miuix-cascading-anchor-morph.patch`：级联根菜单可复用设置页 Popup 的锚点 Morph、内容交接和进出场参数；模型选择器启用此入口，二级菜单仍保持原有展开与父级冻结行为。依次应用前六份后再应用本补丁。
+构建命令与 `sleepdown.miuixSourcePath` 配置见根目录 README。后续修改先确认本地源码与补丁一致，再更新完整补丁；在全新标签副本中执行 `git apply --check`、应用并逐文件比较。不能只以开发者自己的依赖目录能编译作为交付证据。
 
-从全新官方源码按上述顺序 `git apply`，具体命令见根目录 README。旧补丁目录不要再次叠加新版完整补丁，应使用新的依赖目录。`sleepdown.miuixSourcePath` 指向打完补丁的源码根目录。
-
-2026-09-10 重新导出已在本地使用的 UI/preference 源码差异，补齐 Scaffold 和菜单接口，修正旧级联补丁损坏的 hunk。没有改动本地 Miuix 运行时代码，也没有导出本地 IDE、CI 清理、构建产物或未使用的 blur 实验。公开补丁可通过普通 `git apply --check`，不需要 `--recount` 或忽略空白错误。
-
-验证：在独立的官方 `v0.9.3` 工作树应用三份补丁后，16 个变更源码文件与本地实现逐文件一致（仅归一化 CRLF/LF），逆向检查也通过。使用命令行 `sleepdown.miuixSourcePath` 指向该独立目录，完成 `assembleGithubRelease --console=plain --no-parallel --max-workers=1`，耗时 8m56s，包含 R8、资源压缩、lintVital 与签名。这不是只验证当前 `miuix-local` 可以编译。
-
-补丁中的空白上下文行以一个空格开头，这是 unified diff 格式的一部分；源码/文档使用 `git diff --check`，patch 文件使用正反向 `git apply --check`，不要为了消除普通文本的行尾空白提示破坏补丁上下文。
+补丁中的空白上下文行是 unified diff 格式的一部分。源码与文档使用 `git diff --check`；补丁使用 `git apply --check`，不要删除其必要的上下文空格。
 
 ## Kyant Backdrop
 

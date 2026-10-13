@@ -2,10 +2,11 @@ package com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.core.content.ContextCompat
-import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
 import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptInferenceSessions
+import com.xiaomanjun.sleepdownschedule.feature.importing.ChatGptUsageStatus
+import java.net.URI
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +24,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
-import java.net.URI
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Process-owned OAuth operation, independent of Activity rotation / onStop. All session writes,
@@ -151,7 +151,7 @@ object ChatGptAuthManager {
             loginCommit = gate
             val ready = CompletableDeferred<Unit>()
             serviceReady = ready
-            mutableState.update { it.copy(isSigningIn = true, errorMessage = null) }
+            mutableState.update { it.copy(isSigningIn = true, loginStage = ChatGptLoginStage.Preparing, errorMessage = null) }
             // Install the deadline before Main.immediate can fail foreground-service startup.
             timeoutJob = scope.launch {
                 delay(150_000)
@@ -181,14 +181,12 @@ object ChatGptAuthManager {
                             val url = ChatGptProtocol.authorizeUrl(attempt, synchronized(lock) { load(requireContext()).hostId }, selected?.tokens?.idToken, requestConsent)
                             withContext(Dispatchers.Main) {
                                 ensureActive()
-                                val browser = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                                    addCategory(Intent.CATEGORY_BROWSABLE)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                requireContext().startActivity(browser)
+                                ChatGptBrowser.open(context, url)
+                                mutableState.update { it.copy(loginStage = ChatGptLoginStage.Authorizing) }
                             }
                             val callback = it.awaitCallback(attempt)
                             ensureActive()
+                            mutableState.update { it.copy(loginStage = ChatGptLoginStage.Exchanging) }
                             if (selected == null) synchronized(lock) {
                                 val pending = copyVault(load(requireContext()))
                                 pending.pendingClientId = callback.clientId
@@ -198,6 +196,8 @@ object ChatGptAuthManager {
                                 "client_id" to callback.clientId, "code" to callback.code, "code_verifier" to attempt.verifier,
                                 "redirect_uri" to attempt.redirectUri, "resource" to ChatGptProtocol.RESOURCE))
                             val idToken = response.nullableString("id_token") ?: throw ChatGptAuthException("ChatGPT 未返回可验证的身份。")
+                            ensureActive()
+                            mutableState.update { it.copy(loginStage = ChatGptLoginStage.Verifying) }
                             val identity = verifyIdentity(http, idToken, callback.clientId, attempt.nonce)
                             if (selected != null && selected.subject != identity.subject) throw ChatGptAuthException("ChatGPT 账号与所选账号不一致，请重试。")
                             val tokens = parseTokens(response, null, null, requireRefresh = false)
@@ -218,6 +218,10 @@ object ChatGptAuthManager {
                                 if (current.activeClientId != callback.clientId) ChatGptUsageStatus.clear()
                             }
                         }
+                    }
+                } catch (_: TimeoutCancellationException) {
+                    if (generation == loginGeneration) mutableState.update {
+                        it.copy(errorMessage = "登录服务未能启动，请返回应用后重试。")
                     }
                 } catch (_: CancellationException) { /* Explicit cancel/timeout owns the UI message. */ }
                 catch (e: ChatGptAuthException) { if (generation == loginGeneration) mutableState.update { it.copy(errorMessage = e.message) } }
@@ -263,6 +267,7 @@ object ChatGptAuthManager {
                 val replacement = copyVault(load(context))
                 replacement.active()!!.models = catalog
                 commit(context, replacement)
+                mutableState.update { it.copy(errorMessage = null) }
                 catalog
             }
         } catch (e: ChatGptAuthException) { throw e }

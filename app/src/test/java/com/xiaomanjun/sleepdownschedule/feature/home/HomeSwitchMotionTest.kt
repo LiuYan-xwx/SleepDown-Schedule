@@ -7,11 +7,41 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.yield
 import org.junit.Assert.*
 import org.junit.Test
 
 class HomeSwitchMotionTest {
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun nativeMaterialKeepsDensePageFollowersAndRebound() = runTest {
+        val frames = Frames()
+        val target = mutableStateOf(true)
+        val motion = HomeSwitchMotion(false, target, fullMotion = true, renderedCardCount = { 30 })
+        assertFalse(motion.plainSlide)
+        val job = launch(frames.clock, start = CoroutineStart.UNDISPATCHED) { motion.animateTo(true) }
+        var sawStagger = false
+        var sawRebound = false
+        repeat(120) {
+            // Group starts use coroutine delay; advance it together with animation frames.
+            advanceTimeBy(17)
+            runCurrent()
+            frames.next()
+            runCurrent()
+            val groups = (0 until 6).map(motion::groupProgress)
+            sawStagger = sawStagger || groups.any { it != motion.progress.value }
+            sawRebound = sawRebound || groups.any { it > 1f }
+        }
+        assertTrue(sawStagger)
+        assertTrue(sawRebound)
+        assertTrue(job.isCompleted)
+        assertFalse(motion.moving)
+        assertFalse(motion.plainSlide)
+        job.cancelAndJoin()
+    }
+
     @Test fun densePagesSelectPlainSlideBeforeTheFirstTransitionFrame() {
         val count = mutableIntStateOf(0)
         val motion = HomeSwitchMotion(false, mutableStateOf(false), renderedCardCount = { count.intValue })

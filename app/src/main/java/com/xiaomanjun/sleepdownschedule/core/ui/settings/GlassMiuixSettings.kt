@@ -1,17 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.core.ui.settings
 
-import com.xiaomanjun.sleepdownschedule.app.ui.*
-import com.xiaomanjun.sleepdownschedule.core.ui.interaction.*
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownDesignTokens
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalCenteredDialogSceneBackdrop
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalCenteredDialogRenderInRootScaffold
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.centeredDialogSceneProducer
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.rememberCenteredDialogSceneBackdrop
-import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import com.xiaomanjun.sleepdownschedule.*
-
-import androidx.compose.foundation.background
 import androidx.compose.foundation.LocalOverscrollFactory
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,7 +18,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -37,19 +26,36 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
+import com.xiaomanjun.sleepdownschedule.ScheduleConfigEntity
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.TopBackButton
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalCenteredDialogRenderInRootScaffold
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalCenteredDialogSceneBackdrop
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalToolbarBackdropBlurred
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.SleepDownDesignTokens
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.centeredDialogSceneProducer
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.rememberCenteredDialogSceneBackdrop
+import com.xiaomanjun.sleepdownschedule.core.ui.interaction.rememberHapticMiuixOverscrollFactory
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.DetailTopBar
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsPageBackground
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsVisualConfig
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
 import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
+import com.xiaomanjun.sleepdownschedule.glass.ui.LocalLegacyProgressiveBlur
+import com.xiaomanjun.sleepdownschedule.glass.ui.ProgressiveBlurDirection
+import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
+import com.xiaomanjun.sleepdownschedule.glass.ui.glassUsesLightStyle
+import com.xiaomanjun.sleepdownschedule.glass.ui.platformMotionBlurRenderEffect
+import com.xiaomanjun.sleepdownschedule.glass.ui.progressiveBackdropBlur
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -530,7 +536,9 @@ private fun SettingsGradientTopBar(
                     .then(blurModifier)
             )
         }
-        content()
+        CompositionLocalProvider(LocalToolbarBackdropBlurred provides (enabled && backdrop != null)) {
+            content()
+        }
     }
 }
 

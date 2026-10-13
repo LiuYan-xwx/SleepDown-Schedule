@@ -30,7 +30,7 @@ internal fun PeriodSchemeSwitchDialog(
         title = "切换作息",
         message = "",
         actions = listOf(
-            LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = onDismiss),
+            LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = onDismiss),
             LiquidAlertAction("确认切换", LiquidAlertActionStyle.Primary,
                 enabled = impact != null && impact.conflicts.isEmpty(), onClick = { onConfirm(mode) })
         ),
@@ -39,6 +39,7 @@ internal fun PeriodSchemeSwitchDialog(
         onDismissRequest = onDismiss,
         messageMaxHeight = SleepDownDesignTokens.CenteredDialog.SelectionContentMaxHeight,
         scrollableMessageContent = true,
+        isSelector = true,
         messageContent = {
             val foreground = sleepDownPanelForegroundColor(config)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

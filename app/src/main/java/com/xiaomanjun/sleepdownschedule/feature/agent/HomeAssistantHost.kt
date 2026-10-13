@@ -6,18 +6,19 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -27,10 +28,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.*
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -45,20 +45,20 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
-import com.kyant.shapes.RoundedRectangle
 import com.kyant.shapes.Capsule
+import com.kyant.shapes.RoundedRectangle
 import com.xiaomanjun.sleepdownschedule.*
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
 import com.xiaomanjun.sleepdownschedule.core.ui.interaction.TopAssistantSystemBars
 import com.xiaomanjun.sleepdownschedule.core.ui.interaction.deviceScreenCornerRadiusPx
+import com.xiaomanjun.sleepdownschedule.domain.agent.AgentActionHandler
 import com.xiaomanjun.sleepdownschedule.feature.importing.*
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flowOf
 import java.time.Duration
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -187,7 +187,7 @@ internal fun HomeAssistantHost(
             title = "启用 AI 助理？",
             message = "下拉首页即可与助手对话。课程提醒与倒计时在本机计算，对话和文件解析使用你选择的 AI 服务。",
             actions = listOf(
-                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("暂不启用", LiquidAlertActionStyle.Cancel) {
                     DayAgentPreferences.setEnabled(context, false); controller.reset()
                 },
                 LiquidAlertAction("启用", LiquidAlertActionStyle.Primary) { DayAgentPreferences.setEnabled(context, true) }
@@ -275,6 +275,7 @@ internal fun HomeAssistantHost(
             BackHandler(controller.stage == HomeAssistantStage.Reminder) { controller.closing = true }
             TopAssistantSurface(
                 backdrop, state.config, RoundedRectangle(with(density) { (screenCornerPx - edgeInset.toPx()).coerceAtLeast(16.dp.toPx()).toDp() }),
+                nativeMaterial = true,
                 modifier = Modifier.offset {
                     val rect = reminderGeometry()
                     IntOffset(rect.left.roundToInt(), rect.top.roundToInt())

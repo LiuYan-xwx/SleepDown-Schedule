@@ -75,8 +75,8 @@ internal class ChatGptLoopback : Closeable {
     }
 
     private fun respond(socket: java.net.Socket, accepted: Boolean) {
-        val body = if (accepted) "Authorization received. Return to SleepDown to finish sign-in."
-            else "This sign-in callback was not accepted. Return to SleepDown."
+        val body = if (accepted) "已收到授权。请关闭此页面，返回 SleepDown 完成登录。"
+            else "此次授权回调无效，请返回 SleepDown 重新登录。"
         val status = if (accepted) "200 OK" else "400 Bad Request"
         val response = "HTTP/1.1 $status\r\nContent-Type: text/plain; charset=utf-8\r\n" +
             "Content-Length: ${body.toByteArray().size}\r\nCache-Control: no-store\r\n" +

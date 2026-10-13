@@ -1,22 +1,15 @@
 package com.xiaomanjun.sleepdownschedule.feature.agent
 
-import com.xiaomanjun.sleepdownschedule.feature.importing.*
-
 import com.xiaomanjun.sleepdownschedule.*
-
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import com.xiaomanjun.sleepdownschedule.feature.importing.*
 import java.net.HttpURLConnection
-import java.net.URL
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -280,10 +273,7 @@ internal class OpenAiResponsesAgentRunner(
             val connection = open(settings, body)
             return try {
                 checkChatGptResponse(connection)
-                val accumulator = ResponsesSseAccumulator(requireCompleted = true)
-                connection.forEachSseDataLine(onPayload = accumulator::consume)
-                ChatGptInferenceSessions.checkActive(connection)
-                accumulator.toResponseJson()
+                connection.readChatGptResponse(checkActive = { interaction?.checkActive() })
             } finally {
                 ChatGptInferenceSessions.release(connection)
                 connection.disconnect()
@@ -322,6 +312,22 @@ internal class OpenAiResponsesAgentRunner(
         if (code !in 200..299) {
             val error = connection.errorStream?.bufferedReader()?.use { it.readAiBoundedText() }.orEmpty()
             throw AiServiceResponseException(formatAiRequestError(code, error, settings.profile.id), error, httpStatus = code)
+        }
+        if (chatGpt) {
+            val result = AgentResponsesTextAccumulator()
+            var receivedEvent = false
+            val response = connection.readChatGptResponse(checkActive = { interaction?.checkActive() }) { payload ->
+                if (!receivedEvent) { receivedEvent = true; phase(AiImportHttpPhase.FIRST_EVENT) }
+                val event = parseSseJsonObject(payload) ?: return@readChatGptResponse
+                result.consume(event).takeIf(String::isNotEmpty)?.let(onDelta)
+            }
+            val turn = parseAgentResponsesTurn(response)
+            onUsage(turn.usage)
+            val answer = if (receivedEvent) result.finish() else turn.content
+                .takeIf(String::isNotBlank)?.also(onDelta) ?: throw MissingResponsesBodyException()
+            return finishAiImportStream(answer, publishFinal = {
+                interaction?.publishStream(false, answer, force = true)
+            }, onEnd = { phase(AiImportHttpPhase.STREAM_END) })
         }
         if (!connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
             phase(AiImportHttpPhase.BODY_READ_START)
@@ -419,9 +425,6 @@ internal class OpenAiResponsesAgentRunner(
         if (status !in 200..299) {
             val body = connection.errorStream?.bufferedReader()?.use { it.readAiBoundedText().take(16_384) }.orEmpty()
             error(chatGptInferenceError(status, body, connection.getHeaderField("x-request-id")))
-        }
-        check(connection.contentType.orEmpty().contains("text/event-stream", ignoreCase = true)) {
-            "ChatGPT 未返回要求的事件流，请重试。"
         }
     }
 }

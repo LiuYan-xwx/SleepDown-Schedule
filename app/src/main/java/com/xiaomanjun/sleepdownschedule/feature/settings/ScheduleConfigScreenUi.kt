@@ -1,43 +1,18 @@
 package com.xiaomanjun.sleepdownschedule.feature.settings
 
-import com.xiaomanjun.sleepdownschedule.app.ui.*
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
-import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.core.ui.settings.*
-import com.xiaomanjun.sleepdownschedule.feature.schedule.picker.*
-import com.xiaomanjun.sleepdownschedule.feature.home.day.*
-import com.xiaomanjun.sleepdownschedule.feature.home.week.*
-import com.xiaomanjun.sleepdownschedule.core.remoteconfig.*
-import com.xiaomanjun.sleepdownschedule.feature.importing.*
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.coursesOutsideShortenedTerm
-import com.xiaomanjun.sleepdownschedule.feature.course.editor.compactWeekSelectionLabel
-import com.xiaomanjun.sleepdownschedule.feature.course.editor.courseEditorScopeDescription
-import com.xiaomanjun.sleepdownschedule.domain.schedule.hasNetPeriodTopologyChange
-import com.xiaomanjun.sleepdownschedule.domain.schedule.previewPeriodCourseMapping
-import com.xiaomanjun.sleepdownschedule.domain.schedule.PeriodCourseMappingApproval
-import com.xiaomanjun.sleepdownschedule.domain.schedule.SavedPeriodScheme
-import com.xiaomanjun.sleepdownschedule.domain.schedule.applySavedPeriodScheme
-import com.xiaomanjun.sleepdownschedule.domain.schedule.schemeConfig
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-import com.xiaomanjun.sleepdownschedule.model.PeriodAlignmentMode
-import com.xiaomanjun.sleepdownschedule.data.repository.loadPeriodSchemeLibrary
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.net.toUri
-import android.provider.Settings
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,14 +22,39 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import com.kyant.backdrop.Backdrop
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.app.ui.*
+import com.xiaomanjun.sleepdownschedule.core.remoteconfig.*
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsVisualConfig
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.*
+import com.xiaomanjun.sleepdownschedule.data.repository.loadPeriodSchemeLibrary
+import com.xiaomanjun.sleepdownschedule.domain.schedule.PeriodCourseMappingApproval
+import com.xiaomanjun.sleepdownschedule.domain.schedule.SavedPeriodScheme
+import com.xiaomanjun.sleepdownschedule.domain.schedule.applySavedPeriodScheme
+import com.xiaomanjun.sleepdownschedule.domain.schedule.coursesOutsideShortenedTerm
+import com.xiaomanjun.sleepdownschedule.domain.schedule.hasNetPeriodTopologyChange
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
+import com.xiaomanjun.sleepdownschedule.domain.schedule.previewPeriodCourseMapping
+import com.xiaomanjun.sleepdownschedule.domain.schedule.schemeConfig
+import com.xiaomanjun.sleepdownschedule.feature.agent.*
+import com.xiaomanjun.sleepdownschedule.feature.course.editor.compactWeekSelectionLabel
+import com.xiaomanjun.sleepdownschedule.feature.course.editor.courseEditorScopeDescription
+import com.xiaomanjun.sleepdownschedule.feature.home.day.*
+import com.xiaomanjun.sleepdownschedule.feature.home.week.*
+import com.xiaomanjun.sleepdownschedule.feature.importing.*
+import com.xiaomanjun.sleepdownschedule.feature.schedule.picker.*
+import com.xiaomanjun.sleepdownschedule.glass.ui.*
+import com.xiaomanjun.sleepdownschedule.model.PeriodAlignmentMode
+import com.xiaomanjun.sleepdownschedule.transition.legacy.ScheduleCustomizeIdExtra
+import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
-import androidx.compose.runtime.DisposableEffect
-import java.time.LocalDate
-import com.xiaomanjun.sleepdownschedule.transition.legacy.ScheduleCustomizeIdExtra
 
 /** Selecting or reloading a public record projects its saved bells without regenerating rules. */
 internal fun storedPeriodSchemePeriods(scheduleId: Int, draft: PeriodSchemeDraft): List<PeriodEntity> =
@@ -659,7 +659,7 @@ fun ScheduleConfigScreen(
                     showExitSaveConfirm = false
                     onExitCommitFinished(true)
                 },
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) {
                     showExitSaveConfirm = false
                     onExitCommitFinished(false)
                 }
@@ -678,7 +678,7 @@ fun ScheduleConfigScreen(
             title = "重映射课程节次？",
             message = "$courseRemapDescription\n课程名称、星期和周次不变。占用已删除节次、对应关系不明确或产生新冲突时会阻止保存。",
             actions = listOf(
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) {
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) {
                     showCourseRemapConfirm = false
                     pendingRemapSaveCompletion = null
                 },
@@ -721,7 +721,7 @@ fun ScheduleConfigScreen(
                     "${course.name} · ${compactWeekSelectionLabel(hidden.weeks)}\n${courseEditorScopeDescription(listOf(hidden), state.config)}"
                 },
             actions = listOf(
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) { cancelTermShortening() },
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) { cancelTermShortening() },
                 LiquidAlertAction("保留课程并缩短", LiquidAlertActionStyle.Primary) {
                     val completion = pendingTermSaveCompletion
                     pendingTermSaveCompletion = null

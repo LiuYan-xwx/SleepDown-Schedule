@@ -5,9 +5,9 @@ import android.content.Context
 import androidx.room.Room
 import com.xiaomanjun.sleepdownschedule.data.repository.ScheduleRepository
 import com.xiaomanjun.sleepdownschedule.domain.schedule.*
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentActionScope
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentValidatedAction
-import com.xiaomanjun.sleepdownschedule.feature.agent.AgentValidatedActionType
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentActionScope
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedAction
+import com.xiaomanjun.sleepdownschedule.model.agent.AgentValidatedActionType
 import com.xiaomanjun.sleepdownschedule.model.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -238,6 +238,45 @@ class SharedPeriodSchemeRepositoryTest {
         val before = state()
         rejected { repository.deletePublicPeriodScheme("shared") }
         assertEquals(before, state())
+    }
+
+    @Test
+    fun globalSettingsBeforeProfilesLoadDoesNotCreateFallbackConfig() = runBlocking {
+        database.configDao().deleteAllConfigs()
+        database.scheduleProfileDao().deleteAllProfiles()
+
+        repository.saveGlobalSettings(defaultConfig().copy(darkMode = true))
+
+        assertTrue(database.configDao().getAllConfigs().isEmpty())
+        assertTrue(database.scheduleProfileDao().getProfiles().isEmpty())
+    }
+
+    @Test
+    fun globalSettingsOnlyUpdatesLiveProfilesAndDoesNotTouchLeftoverConfig() = runBlocking {
+        repository.deleteSchedule(1)
+        val leftover = defaultConfig(1).copy(totalWeeks = 12, darkMode = false)
+        database.configDao().upsertConfig(leftover)
+
+        repository.saveGlobalSettings(leftover.copy(darkMode = true))
+
+        assertEquals(leftover, database.configDao().getConfig(1))
+        assertTrue(requireNotNull(database.configDao().getConfig(2)).darkMode)
+        assertEquals(listOf(2), database.scheduleProfileDao().getProfiles().map { it.id })
+    }
+
+    @Test
+    fun staleScheduleEditorCannotRecreateDeletedConfigurationOrPeriods() = runBlocking {
+        val deletedConfig = requireNotNull(database.configDao().getConfig(1))
+        val deletedPeriods = database.configDao().getPeriods(1)
+        repository.deleteSchedule(1)
+        val before = state()
+
+        rejected { repository.saveConfigForSchedule(1, deletedConfig, deletedPeriods) }
+        rejected { repository.loadPeriodSchemes(1) }
+
+        assertEquals(before, state())
+        assertNull(database.configDao().getConfig(1))
+        assertTrue(database.configDao().getPeriods(1).isEmpty())
     }
 
     @Test

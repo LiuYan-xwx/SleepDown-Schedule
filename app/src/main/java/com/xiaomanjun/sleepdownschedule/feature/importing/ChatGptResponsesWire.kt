@@ -1,9 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing
 
-import kotlinx.serialization.json.*
+import java.net.HttpURLConnection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.net.HttpURLConnection
+import kotlinx.serialization.json.*
 
 /** Logout/account replacement cancels streams and rejects late completed results. */
 internal object ChatGptInferenceSessions {
@@ -111,9 +111,18 @@ internal fun chatGptResponsesBody(body: JsonObject): JsonObject {
     val values = body.toMutableMap()
     setOf("background", "conversation", "max_output_tokens", "max_tool_calls", "metadata",
         "moderation", "multi_agent", "prompt", "prompt_cache_retention", "safety_identifier",
-        "temperature", "top_logprobs", "top_p", "truncation", "user", "previous_response_id",
-        // Let the account/model choose its supported default rather than guessing its effort range.
-        "reasoning").forEach(values::remove)
+        "temperature", "top_logprobs", "top_p", "truncation", "user", "previous_response_id").forEach(values::remove)
+    val model = values["model"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    if (chatGptReasoningEfforts(model).isEmpty()) {
+        values.remove("reasoning")
+    } else {
+        val reasoning = (values["reasoning"] as? JsonObject).orEmpty().toMutableMap()
+        val selected = AiReasoningEffort.entries.firstOrNull {
+            it.apiValue == (reasoning["effort"] as? JsonPrimitive)?.contentOrNull
+        } ?: AiReasoningEffort.MEDIUM
+        reasoning["effort"] = JsonPrimitive(chatGptReasoningEffort(model, selected).apiValue)
+        values["reasoning"] = JsonObject(reasoning)
+    }
     values["store"] = JsonPrimitive(false)
     values["stream"] = JsonPrimitive(true)
     val input = when (val raw = values["input"]) {

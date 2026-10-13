@@ -42,6 +42,7 @@ internal fun SleepDownFloatingAddButton(
             modifier = modifier.size(54.dp),
             isInteractive = enabled,
             clickTargetEnabled = enabled,
+            enabled = enabled,
             height = 54.dp,
             contentPadding = PaddingValues(0.dp),
             surfaceColor = surfaceColor,

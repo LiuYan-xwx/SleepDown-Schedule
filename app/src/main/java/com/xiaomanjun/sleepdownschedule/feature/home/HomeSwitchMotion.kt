@@ -1,9 +1,9 @@
 package com.xiaomanjun.sleepdownschedule.feature.home
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.pager.PagerState
@@ -13,8 +13,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,33 +23,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.xiaomanjun.sleepdownschedule.glass.LocalGlassCoordinatesFrozen
 import com.xiaomanjun.sleepdownschedule.glass.LocalGlassSampleRecordKey
 import kotlin.math.abs
 import kotlin.math.min
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val SwitchGroupCount = 6
 private const val SwitchGroupDelayMillis = 18
@@ -61,12 +61,13 @@ private val SwitchPlainSlide = spring<Float>(dampingRatio = 1f, stiffness = 320f
 
 internal enum class HomeSwitchClip { None, Page, TopBar }
 
-/** Sparse pages stagger content; pages with more than ten cards move as a single surface. */
+/** ColorOS retains every follow track; legacy dense glass can use its existing page slide. */
 @Stable
 internal class HomeSwitchMotion(
     initialSecondary: Boolean,
     private val target: State<Boolean>,
     val landscape: Boolean = false,
+    private val fullMotion: Boolean = false,
     private val renderedCardCount: () -> Int = { 0 }
 ) {
     private val page = Animatable(if (initialSecondary) 1f else 0f)
@@ -82,8 +83,9 @@ internal class HomeSwitchMotion(
     // Cards subscribe to the chosen style, not the start/end flags themselves. Both branches
     // remain true for a dense page; forwarding running would recompose every unchanged card.
     val plainSlide: Boolean by derivedStateOf(structuralEqualityPolicy()) {
-        if (running) latchedPlainSlide else renderedCardCount() > 10
+        if (running) latchedPlainSlide else shouldUsePlainSlide()
     }
+    private fun shouldUsePlainSlide() = !fullMotion && renderedCardCount() > 10
     val progress: State<Float> = page.asState()
     val moving: Boolean get() = running || settledSecondary != target.value
 
@@ -110,7 +112,7 @@ internal class HomeSwitchMotion(
         else tracks[group.coerceIn(0, SwitchGroupCount - 1)].value
 
     suspend fun settleAt(secondary: Boolean) {
-        latchedPlainSlide = renderedCardCount() > 10
+        latchedPlainSlide = shouldUsePlainSlide()
         val destination = if (secondary) 1f else 0f
         page.snapTo(destination)
         tracks.forEach { it.snapTo(destination) }
@@ -121,7 +123,7 @@ internal class HomeSwitchMotion(
     }
 
     suspend fun animateTo(secondary: Boolean) {
-        if (!running) latchedPlainSlide = renderedCardCount() > 10
+        if (!running) latchedPlainSlide = shouldUsePlainSlide()
         val destination = if (secondary) 1f else 0f
         if (page.value == destination && pageVelocity == 0f &&
             tracks.all { it.value == destination } && velocities.all { it == 0f }) {
@@ -188,8 +190,9 @@ internal fun rememberHomeSwitchMotion(
     val latestCardCount = rememberUpdatedState(renderedCardCount)
     val configuration = LocalConfiguration.current
     val landscape = configuration.screenWidthDp > configuration.screenHeightDp
-    val motion = remember(label, landscape) {
-        HomeSwitchMotion(secondary, target, landscape) { latestCardCount.value() }
+    val fullMotion = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeCourseCardMode.current != null
+    val motion = remember(label, landscape, fullMotion) {
+        HomeSwitchMotion(secondary, target, landscape, fullMotion) { latestCardCount.value() }
     }
     LaunchedEffect(motion, secondary, animate) {
         if (animate) motion.animateTo(secondary) else motion.settleAt(secondary)

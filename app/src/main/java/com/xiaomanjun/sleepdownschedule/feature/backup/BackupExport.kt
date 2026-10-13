@@ -1,12 +1,10 @@
 package com.xiaomanjun.sleepdownschedule.feature.backup
 
-import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
-
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.feature.widget.*
-import com.xiaomanjun.sleepdownschedule.feature.agent.*
-
 import androidx.room.withTransaction
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.domain.schedule.originalArrangement
+import com.xiaomanjun.sleepdownschedule.feature.agent.*
+import com.xiaomanjun.sleepdownschedule.feature.widget.*
 
 /**
  * Room-only read snapshot used by the backup adapter. It deliberately contains entities, not a
@@ -24,18 +22,24 @@ data class BackupRoomSnapshot(
     val widgetAppearances: List<WidgetAppearanceEntity> = emptyList()
 )
 
-/** Reads every Room table in one transaction; active-only repository snapshots are not enough. */
+/** Reads all current profiles and their owned rows atomically, plus the independent global library. */
 class BackupRoomSnapshotReader(private val database: AppDatabase) {
     suspend fun read(): BackupRoomSnapshot = database.withTransaction {
+        val profiles = database.scheduleProfileDao().getProfiles()
+        val scheduleIds = profiles.mapTo(HashSet()) { it.id }
+        // Earlier callbacks/deletions could leave rows after their profile disappeared. Export
+        // the current timetable list (including inactive profiles), without modifying those rows
+        // or resurrecting deleted timetables. The codec still validates every exported relation.
         BackupRoomSnapshot(
-            schedules = database.scheduleProfileDao().getProfiles(),
-            configs = database.configDao().getAllConfigs(),
-            periods = database.configDao().getAllPeriods(),
-            courses = database.courseDao().getAllCourses(),
+            schedules = profiles,
+            configs = database.configDao().getAllConfigs().filter { it.id in scheduleIds },
+            periods = database.configDao().getAllPeriods().filter { it.scheduleId in scheduleIds },
+            courses = database.courseDao().getAllCourses().filter { it.scheduleId in scheduleIds },
+            // scheduleId is legacy provenance for shared schemes, not current ownership.
             periodSchemes = database.periodSchemeDao().getAllSchemes(),
             periodSchemeTimes = database.periodSchemeDao().getAllTimes(),
-            agentDailySessions = database.agentDao().getAllDailySessions(),
-            agentMessages = database.agentDao().getAllMessages(),
+            agentDailySessions = database.agentDao().getAllDailySessions().filter { it.scheduleId in scheduleIds },
+            agentMessages = database.agentDao().getAllMessages().filter { it.scheduleId in scheduleIds },
             widgetAppearances = database.widgetAppearanceDao().getAll()
         )
     }

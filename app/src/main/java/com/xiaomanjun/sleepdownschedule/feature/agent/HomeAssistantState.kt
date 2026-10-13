@@ -12,14 +12,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
+import com.xiaomanjun.sleepdownschedule.glass.ui.topAssistantBezierSpec
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import com.xiaomanjun.sleepdownschedule.glass.ui.topAssistantBezierSpec
-import kotlin.math.abs
 
 internal enum class HomeAssistantStage { Hidden, Reminder, Conversation }
 
@@ -46,10 +43,8 @@ internal class HomeAssistantState(private val scope: CoroutineScope) {
     var closing by mutableStateOf(false)
     var conversationStartsFullScreen by mutableStateOf(false)
         private set
-    internal val controlBounds = mutableMapOf<Any, LayoutCoordinates>()
-    fun canPullAt(position: Offset): Boolean = controlBounds.values.none {
-        it.isAttached && it.boundsInRoot().contains(position)
-    }
+    val pullExclusions = com.xiaomanjun.sleepdownschedule.core.ui.interaction.PullGestureExclusions()
+    fun canPullAt(position: Offset): Boolean = pullExclusions.canStartAt(position)
     private var returnJob: Job? = null
     private var thresholdNotified = false
     val visible: Boolean get() = stage != HomeAssistantStage.Hidden
@@ -116,14 +111,6 @@ internal class HomeAssistantState(private val scope: CoroutineScope) {
 }
 
 internal val LocalHomeAssistant = staticCompositionLocalOf<HomeAssistantState?> { null }
-
-/** Exclude the control's entire gesture, even after the finger leaves its hit area. */
-internal fun Modifier.excludeHomeAssistantPull(): Modifier = composed {
-    val assistant = LocalHomeAssistant.current ?: return@composed this
-    val key = remember { Any() }
-    DisposableEffect(assistant, key) { onDispose { assistant.controlBounds.remove(key) } }
-    onGloballyPositioned { assistant.controlBounds[key] = it }
-}
 
 /** Direction locks before consuming; taps, upward scrolling, horizontal paging and multi-touch pass through. */
 internal fun Modifier.assistantPullGesture(

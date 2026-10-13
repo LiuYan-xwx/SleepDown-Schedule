@@ -2,10 +2,10 @@ package com.xiaomanjun.sleepdownschedule.core.identity
 
 import android.content.ComponentName
 import android.content.Context
-import android.content.res.Configuration
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import androidx.core.content.edit
-import com.xiaomanjun.sleepdownschedule.feature.backup.BackupAppIconPreferences
+import com.xiaomanjun.sleepdownschedule.model.AppIconPreferencesSnapshot
 
 enum class AppIconMode(val label: String) {
     LIGHT("浅色"),
@@ -153,9 +153,9 @@ object AppIconManager {
             .getOrDefault(AppIconStyle.KANBAN)
     }
 
-    fun backupPreferences(context: Context): BackupAppIconPreferences {
+    fun backupPreferences(context: Context): AppIconPreferencesSnapshot {
         val storage = preferences(context)
-        return BackupAppIconPreferences(
+        return AppIconPreferencesSnapshot(
             mode = currentMode(context).name,
             style = currentStyle(context).name,
             followsSystemDarkMode = storage.getBoolean(FollowsSystemDarkModeKey, true),
@@ -163,7 +163,7 @@ object AppIconManager {
         )
     }
 
-    fun applyBackupPreferences(context: Context, backup: BackupAppIconPreferences) {
+    fun applyBackupPreferences(context: Context, backup: AppIconPreferencesSnapshot) {
         val mode = runCatching { AppIconMode.valueOf(backup.mode) }
             .getOrElse { throw IllegalArgumentException("未知 app icon mode: ${backup.mode}") }
         val style = runCatching { AppIconStyle.valueOf(backup.style) }

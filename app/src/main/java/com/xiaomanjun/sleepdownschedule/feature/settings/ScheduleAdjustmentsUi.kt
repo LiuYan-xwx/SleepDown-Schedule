@@ -4,7 +4,6 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,25 +15,36 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.xiaomanjun.sleepdownschedule.AppState
-import com.xiaomanjun.sleepdownschedule.app.ui.DetailActivityScaffold
-import com.xiaomanjun.sleepdownschedule.app.ui.detailContentTopPadding
-import com.xiaomanjun.sleepdownschedule.app.ui.settingsPageBackground
-import com.xiaomanjun.sleepdownschedule.app.ui.DockScrollPadding
+import com.xiaomanjun.sleepdownschedule.core.ui.chrome.DockScrollPadding
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.DetailActivityScaffold
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.detailContentTopPadding
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsPageBackground
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceCategory
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceSection
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsActionButton
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDatePickerContent
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDatePickerRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDivider
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsGroup
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsNavigationRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsSwipeDeleteRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsTextFieldRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsToggleRow
+import com.xiaomanjun.sleepdownschedule.domain.schedule.*
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
 import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
 import com.xiaomanjun.sleepdownschedule.glass.ui.appUsesDarkTheme
-import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
-import com.xiaomanjun.sleepdownschedule.domain.schedule.*
 import com.xiaomanjun.sleepdownschedule.model.ScheduleConfigEntity
 import com.xiaomanjun.sleepdownschedule.transition.TransitionRouteId
 import com.xiaomanjun.sleepdownschedule.transition.openRegisteredActivity
@@ -377,7 +387,7 @@ internal fun ScheduleAdjustmentsScreen(
             actions = listOf(
                 LiquidAlertAction("完成", LiquidAlertActionStyle.Primary) { onConfirm(entries) },
                 LiquidAlertAction("放弃修改", LiquidAlertActionStyle.Destructive) { onDismiss() },
-                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary) { showExitConfirm = false }
+                LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel) { showExitConfirm = false }
             ),
             backdrop = backdrop, config = state.config, onDismissRequest = { showExitConfirm = false }
         )
@@ -392,7 +402,7 @@ internal fun ScheduleAdjustmentsScreen(
                         if (draft?.date == entry.date) dropDraft()
                         deleting = null
                     },
-                    LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary) { deleting = null }
+                    LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel) { deleting = null }
                 ),
                 backdrop = backdrop, config = state.config, onDismissRequest = { deleting = null }
             )

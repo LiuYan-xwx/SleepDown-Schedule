@@ -9,6 +9,12 @@ import java.security.Signature
 import java.security.interfaces.RSAPublicKey
 
 class ChatGptProtocolTest {
+    @Test fun standardModelsResponseUsesServerIdsWithoutInventingCapabilities() {
+        val models = ChatGptProtocol.models(JSONObject("""{"data":[{"id":"account-model"},{"id":"second-model"}]}"""))
+        assertEquals(listOf("account-model", "second-model"), models.map { it.slug })
+        assertTrue(models.none { it.supportsImages })
+        assertThrows(ChatGptAuthException::class.java) { ChatGptProtocol.models(JSONObject("{}")) }
+    }
     private val attempt = AuthAttempt(null, "http://127.0.0.1:49152/auth/callback", "test-state", "test-nonce", "test-verifier")
 
     @Test fun pkceMatchesRfc7636Vector() {

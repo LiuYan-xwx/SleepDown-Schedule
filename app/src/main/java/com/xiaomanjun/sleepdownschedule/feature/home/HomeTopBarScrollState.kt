@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
-import com.xiaomanjun.sleepdownschedule.app.ui.HomeMode
+import com.xiaomanjun.sleepdownschedule.model.HomeMode
 
 /** Retained pages may not scroll again when revealed; replay their own last overlap on selection. */
 @Composable

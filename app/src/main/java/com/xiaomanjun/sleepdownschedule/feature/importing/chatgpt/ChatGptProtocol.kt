@@ -1,8 +1,7 @@
 package com.xiaomanjun.sleepdownschedule.feature.importing.chatgpt
 
-import org.json.JSONObject
-import java.math.BigInteger
 import java.io.ByteArrayOutputStream
+import java.math.BigInteger
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -15,6 +14,7 @@ import java.security.Signature
 import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import org.json.JSONObject
 
 /** Public SIWC protocol only. Never use browser cookies or ChatGPT's private backend. */
 internal object ChatGptProtocol {
@@ -122,11 +122,13 @@ internal object ChatGptProtocol {
     }
 
     fun models(body: JSONObject): List<ChatGptModel> {
-        val models = body.getJSONArray("models")
+        val accountCatalog = body.optJSONArray("models")
+        val models = accountCatalog ?: body.optJSONArray("data")
+            ?: throw ChatGptAuthException("ChatGPT 未返回可识别的模型列表，请稍后刷新。")
         return (0 until models.length()).map { models.getJSONObject(it) }
-            .filter { it.optString("visibility") == "list" }
+            .filter { accountCatalog == null || it.optString("visibility") == "list" }
             .mapNotNull {
-                val slug = it.optString("slug")
+                val slug = it.optString(if (accountCatalog != null) "slug" else "id")
                 if (slug.isBlank()) null else ChatGptModel(slug, it.optString("display_name").ifBlank { slug },
                     it.optBoolean("supports_images", false))
             }.distinctBy { it.slug }

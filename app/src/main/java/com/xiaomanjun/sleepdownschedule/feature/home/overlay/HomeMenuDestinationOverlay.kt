@@ -1,19 +1,5 @@
 package com.xiaomanjun.sleepdownschedule.feature.home.overlay
 
-import com.xiaomanjun.sleepdownschedule.app.ui.*
-import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import com.xiaomanjun.sleepdownschedule.transition.legacy.*
-import com.xiaomanjun.sleepdownschedule.feature.importing.history.*
-import com.xiaomanjun.sleepdownschedule.*
-import com.xiaomanjun.sleepdownschedule.feature.home.*
-import com.xiaomanjun.sleepdownschedule.feature.home.day.*
-import com.xiaomanjun.sleepdownschedule.feature.home.week.*
-
-import com.xiaomanjun.sleepdownschedule.feature.course.editor.*
-import com.xiaomanjun.sleepdownschedule.feature.importing.*
-import com.xiaomanjun.sleepdownschedule.core.ui.settings.*
-
-import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -34,8 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,10 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTag
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
@@ -57,14 +41,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -76,9 +62,18 @@ import androidx.compose.ui.zIndex
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidPanel
 import com.kyant.shapes.RoundedRectangle
-import com.xiaomanjun.sleepdownschedule.glass.LiquidMorphController
-import com.xiaomanjun.sleepdownschedule.glass.LiquidMorphControllerBridge
-import com.xiaomanjun.sleepdownschedule.glass.LiquidMorphPhase
+import com.xiaomanjun.sleepdownschedule.*
+import com.xiaomanjun.sleepdownschedule.app.ui.*
+import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.AddMenuAction
+import com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.DetailActivityScaffold
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.*
+import com.xiaomanjun.sleepdownschedule.feature.course.editor.*
+import com.xiaomanjun.sleepdownschedule.feature.home.*
+import com.xiaomanjun.sleepdownschedule.feature.home.day.*
+import com.xiaomanjun.sleepdownschedule.feature.home.week.*
+import com.xiaomanjun.sleepdownschedule.feature.importing.*
+import com.xiaomanjun.sleepdownschedule.feature.importing.history.*
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.GlassMaterialRole
 import com.xiaomanjun.sleepdownschedule.glass.GlassRendererKind
@@ -86,16 +81,22 @@ import com.xiaomanjun.sleepdownschedule.glass.GlassSceneKeys
 import com.xiaomanjun.sleepdownschedule.glass.GlassTransitionEnvelope
 import com.xiaomanjun.sleepdownschedule.glass.GlassTransitionGeometry
 import com.xiaomanjun.sleepdownschedule.glass.GlassTransitionLayer
+import com.xiaomanjun.sleepdownschedule.glass.LiquidMorphController
+import com.xiaomanjun.sleepdownschedule.glass.LiquidMorphControllerBridge
+import com.xiaomanjun.sleepdownschedule.glass.LiquidMorphPhase
 import com.xiaomanjun.sleepdownschedule.glass.LocalGlassSceneState
-import com.xiaomanjun.sleepdownschedule.glass.rememberGlassSurfaceDescriptor
-import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
 import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
+import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
+import com.xiaomanjun.sleepdownschedule.glass.rememberGlassSurfaceDescriptor
 import com.xiaomanjun.sleepdownschedule.glass.sampleGlassTransitionEnvelope
 import com.xiaomanjun.sleepdownschedule.glass.stableContentOffsetInEnvelope
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import com.xiaomanjun.sleepdownschedule.glass.ui.*
+import com.xiaomanjun.sleepdownschedule.model.HomeMode
+import com.xiaomanjun.sleepdownschedule.transition.legacy.*
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 internal enum class HomeMenuDestinationKind { AddCourse, ManualImport, EduImport }
 
@@ -522,7 +523,18 @@ internal fun HomeMenuDestinationOverlayHost(
             )
             val shape = RoundedRectangle(32.dp)
             val lightGlass = glassUsesLightStyle(state.config)
-            if (dialogBackdrop != null) {
+            val nativeSurface = shown.kind == HomeMenuDestinationKind.AddCourse &&
+                com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current?.invoke(
+                    com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+                        modifier = Modifier.fillMaxSize().glassBackdropProducer(surfaceBackdrop),
+                        shape = shape, dark = appUsesDarkTheme(state.config),
+                        role = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.HomeDock,
+                        edgeEffects = true, followTouch = true
+                    )
+                ) {} == true
+            if (nativeSurface) {
+                // Same form and transition shell; only the missing material is supplied here.
+            } else if (dialogBackdrop != null) {
                 LiquidPanel(
                     backdrop = dialogBackdrop,
                     modifier = Modifier.fillMaxSize().glassBackdropProducer(surfaceBackdrop),
@@ -538,11 +550,11 @@ internal fun HomeMenuDestinationOverlayHost(
             }
             Box(Modifier.fillMaxSize().clip(shape)) {
             when (shown.kind) {
-                HomeMenuDestinationKind.AddCourse -> NormalizedCourseEditorScreen(
+                HomeMenuDestinationKind.AddCourse -> AddCourseDockContent(state.config) { NormalizedCourseEditorScreen(
                     state = state, initialCourse = null, backdrop = surfaceBackdrop,
                     onCancel = onDismissRequest, onSave = {}, onSaveCourses = onAddCourses, onDelete = {},
                     onDismissHandlerChange = { dismissHandler = it }, pickerRenderInRootScaffold = false
-                )
+                ) }
                 HomeMenuDestinationKind.ManualImport -> NormalizedAiManualImportScreen(
                     state = state, backdrop = dialogBackdrop, onCancel = onDismissRequest,
                     captureHistoryBackground = captureHistoryBackground, onParsed = onManualImportParsed
@@ -984,7 +996,19 @@ internal fun HomeMenuDestinationOverlayHost(
             val lightGlass = glassUsesLightStyle(state.config)
             // Keep the material composed throughout Preparing and Opening. Mounting drawBackdrop
             // at the same frame the cached form hands off can flash text fields on some GPUs.
-            if (backdrop != null) {
+            val nativeSurface = shown.kind == HomeMenuDestinationKind.AddCourse &&
+                com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current?.invoke(
+                    com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRequest(
+                        modifier = Modifier.fillMaxSize().glassBackdropProducer(destinationSurfaceBackdrop),
+                        shape = destinationShape, dark = appUsesDarkTheme(state.config),
+                        surfaceAlpha = { frame.value.destinationSurfaceAlpha },
+                        role = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.NativeMaterialSurfaceRole.HomeDock,
+                        edgeEffects = true, followTouch = true
+                    )
+                ) {} == true
+            if (nativeSurface) {
+                // Remains mounted through source handoff, just like the fallback panel below.
+            } else if (backdrop != null) {
                 LiquidPanel(
                     backdrop = backdrop,
                     modifier = Modifier.fillMaxSize().glassBackdropProducer(destinationSurfaceBackdrop).graphicsLayer {
@@ -1113,7 +1137,7 @@ internal fun HomeMenuDestinationOverlayHost(
                         com.xiaomanjun.sleepdownschedule.glass.LocalGlassSampleRecordKey provides { shown }
                     ) {
                         when (shown.kind) {
-                            HomeMenuDestinationKind.AddCourse -> top.yukonga.miuix.kmp.basic.Scaffold(
+                            HomeMenuDestinationKind.AddCourse -> AddCourseDockContent(state.config) { top.yukonga.miuix.kmp.basic.Scaffold(
                                 modifier = Modifier.fillMaxSize(),
                                 containerColor = Color.Transparent,
                                 contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -1134,7 +1158,7 @@ internal fun HomeMenuDestinationOverlayHost(
                                     // that producer and is therefore the authoritative picker host.
                                     pickerRenderInRootScaffold = true
                                 )
-                            }
+                            } }
                             HomeMenuDestinationKind.ManualImport -> NormalizedAiManualImportScreen(
                                 state = state,
                                 backdrop = backdrop,
@@ -1243,4 +1267,17 @@ internal fun HomeMenuDestinationOverlayHost(
             }
         }
     }
+}
+
+/** Share the Dock's wallpaper contrast decision, including input values. */
+@Composable
+private fun AddCourseDockContent(config: ScheduleConfigEntity, content: @Composable () -> Unit) {
+    val style = com.xiaomanjun.sleepdownschedule.core.ui.material.LocalHomeMaterialStyle.current
+    val native = com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialSurfaceRenderer.current != null
+    val foreground = if (!native) Color.Unspecified else style?.foreground?.let { Color(it) }
+        ?: if (style?.dark ?: appUsesDarkTheme(config)) Color.White else Color.Black
+    CompositionLocalProvider(
+        com.xiaomanjun.sleepdownschedule.core.ui.designsystem.LocalNativeMaterialForeground provides foreground,
+        content = content
+    )
 }

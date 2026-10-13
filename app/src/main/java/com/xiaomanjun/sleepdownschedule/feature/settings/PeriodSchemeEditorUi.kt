@@ -13,53 +13,60 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.IntOffset
-import com.xiaomanjun.sleepdownschedule.R
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
-import com.xiaomanjun.sleepdownschedule.app.ui.settingsPageBackground
+import com.xiaomanjun.sleepdownschedule.R
 import com.xiaomanjun.sleepdownschedule.core.ui.designsystem.*
+import com.xiaomanjun.sleepdownschedule.core.ui.scaffold.settingsPageBackground
 import com.xiaomanjun.sleepdownschedule.core.ui.settings.*
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.GlassPreferenceCategory
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsDivider
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsGroup
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsMinutePickerContent
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsPickerValueRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsTextFieldRow
+import com.xiaomanjun.sleepdownschedule.core.ui.settings.SettingsTimePickerContent
 import com.xiaomanjun.sleepdownschedule.domain.schedule.*
-import com.xiaomanjun.sleepdownschedule.model.*
 import com.xiaomanjun.sleepdownschedule.feature.home.week.WeekResizeCornerShape
 import com.xiaomanjun.sleepdownschedule.glass.GlassBackdropDomain
 import com.xiaomanjun.sleepdownschedule.glass.glassBackdropProducer
 import com.xiaomanjun.sleepdownschedule.glass.rememberGlassLayerBackdrop
 import com.xiaomanjun.sleepdownschedule.glass.ui.*
-import kotlinx.coroutines.launch
+import com.xiaomanjun.sleepdownschedule.model.*
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 private val TimelineCourseColor = Color(0xFF0A84FF)
 private val TimelineBreakColor = Color(0xFFB078D8)
@@ -617,7 +624,7 @@ internal fun PeriodSchemeEditor(
         listOf(
             LiquidAlertAction("保存", LiquidAlertActionStyle.Primary, onClick = { showExitConfirmation = false; leave(true) }),
             LiquidAlertAction("不保存", LiquidAlertActionStyle.Destructive, onClick = { showExitConfirmation = false; leave(false) }),
-            LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Secondary, onClick = { showExitConfirmation = false })
+            LiquidAlertAction("继续编辑", LiquidAlertActionStyle.Cancel, onClick = { showExitConfirmation = false })
         ), popupBackdrop, state.config, { showExitConfirmation = false })
     if (showWizard) PeriodSchemeCreationWizard(config, draft, popupBackdrop, state.config,
         onDismiss = { showWizard = false; if (managementContent != null) onEditorFinished() },
@@ -625,7 +632,7 @@ internal fun PeriodSchemeEditor(
     deletingBlock?.let { block ->
         LiquidAlertDialog("移除${block.title}", if (block.isBreak) "后续课程将在当前时段内提前 ${block.minutes} 分钟，节次编号不变。"
             else "这套作息的节次编号将连续调整，删除后可从课间下方添加节次。如果课程占用了被删除的节次，保存会被阻止。",
-            listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Secondary, onClick = { deletingBlock = null }),
+            listOf(LiquidAlertAction("取消", LiquidAlertActionStyle.Cancel, onClick = { deletingBlock = null }),
                 LiquidAlertAction("移除", LiquidAlertActionStyle.Destructive, onClick = {
                     session?.let { edit ->
                         val result = if (block.isBreak) resizeTimelineEntry(edit, block, 0) else deleteTimelinePeriod(edit, block.period)
